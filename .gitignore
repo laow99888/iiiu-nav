@@ -1,0 +1,35 @@
+# Runtime data and local backups
+/data/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Frontend dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Go build output
+/bin/
+/iiiu-nav
+/iiiu-nav.exe
+
+# Test artifacts
+playwright-report/
+test-results/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
