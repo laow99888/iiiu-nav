@@ -18,6 +18,8 @@ docker compose up -d
 
 打开 `http://127.0.0.1:8080` 查看公开前台；管理员从 `/admin/login` 进入独立后台。Compose 默认只监听本机回环地址；公网部署应通过 HTTPS 反向代理访问。首次启动会读取密码文件并只保存 Argon2id 哈希，后续启动不会再读取该文件。
 
+Linux 上容器以 UID `65532` 运行。若密码文件由 root 创建，启动前还需要执行 `chown root:65532 secrets/admin-password && chmod 640 secrets/admin-password`，否则容器无法读取首次启动密码。
+
 ```powershell
 Invoke-WebRequest http://127.0.0.1:8080/healthz
 docker compose logs app

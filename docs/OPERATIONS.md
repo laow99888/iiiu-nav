@@ -43,11 +43,12 @@ Linux 主机可改用：
 ```bash
 install -d -m 700 secrets
 printf '%s' '请替换为至少12个字符的初始密码' > secrets/admin-password
-chmod 600 secrets/admin-password
+chown root:65532 secrets/admin-password
+chmod 640 secrets/admin-password
 cp .env.example .env
 ```
 
-密码长度必须为 12-1024 字节。尾部换行会被忽略。`secrets/`、`.env` 和 `/data` 已排除在 Git 与 Docker 构建上下文之外。
+密码长度必须为 12-1024 字节。尾部换行会被忽略。Linux 上的 `root:65532 0640` 让 root 持有密码，同时允许容器内 UID `65532` 的非 root 进程完成首次读取；其他用户不可读。`secrets/`、`.env` 和 `/data` 已排除在 Git 与 Docker 构建上下文之外。
 
 ### 2.2 构建并启动
 
@@ -146,7 +147,8 @@ Linux：
 ```bash
 docker compose stop app
 printf '%s' '新的至少12个字符密码' > secrets/admin-password
-chmod 600 secrets/admin-password
+chown root:65532 secrets/admin-password
+chmod 640 secrets/admin-password
 docker compose run --rm app admin reset-password
 docker compose up -d
 ```
