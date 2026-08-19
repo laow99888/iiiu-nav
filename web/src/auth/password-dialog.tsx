@@ -4,6 +4,8 @@ import { messages } from '../i18n/messages';
 import { Button, Dialog, TextField } from '../ui/primitives';
 import { AuthAPIError, changePassword } from './auth-api';
 
+const minimumPasswordCharacters = 9;
+
 type PasswordDialogProps = {
   onClose: () => void;
   onSuccess: () => void;
@@ -36,7 +38,7 @@ export function PasswordDialog({
   const mismatch = confirmation.length > 0 && confirmation !== newPassword;
   const valid =
     currentPassword.length > 0 &&
-    newPassword.length >= 12 &&
+    Array.from(newPassword).length >= minimumPasswordCharacters &&
     confirmation === newPassword;
   const submit = async () => {
     if (!valid || submitting) return;
@@ -97,7 +99,7 @@ export function PasswordDialog({
         <TextField
           required
           type="password"
-          minLength={12}
+          minLength={minimumPasswordCharacters}
           autoComplete="new-password"
           label={messages.auth.newPassword}
           description={messages.auth.passwordRule}

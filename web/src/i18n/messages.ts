@@ -193,7 +193,7 @@ export const messages = {
     currentPassword: '当前密码',
     newPassword: '新密码',
     confirmPassword: '确认新密码',
-    passwordRule: '至少 12 个字符。',
+    passwordRule: '至少 9 个字符。',
     passwordMismatch: '两次输入的新密码不一致。',
     currentPasswordInvalid: '当前密码不正确。',
     invalidPassword: '新密码不符合安全要求。',

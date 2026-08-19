@@ -77,7 +77,7 @@ func TestAdministratorHTTPWorkflow(t *testing.T) {
 
 	response = postJSON(t, client, testServer.URL+"/api/auth/password", testServer.URL, map[string]string{
 		"currentPassword": "original administrator password",
-		"newPassword":     "replacement administrator password",
+		"newPassword":     "newpass09",
 	})
 	assertStatus(t, response, http.StatusNoContent)
 	if sessionStatus(t, client, testServer.URL) {
@@ -89,7 +89,7 @@ func TestAdministratorHTTPWorkflow(t *testing.T) {
 	})
 	assertStatus(t, response, http.StatusUnauthorized)
 	response = postJSON(t, client, testServer.URL+"/api/auth/login", testServer.URL, map[string]string{
-		"password": "replacement administrator password",
+		"password": "newpass09",
 	})
 	assertStatus(t, response, http.StatusNoContent)
 

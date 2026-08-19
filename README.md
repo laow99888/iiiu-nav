@@ -10,7 +10,7 @@
 
 ```powershell
 New-Item -ItemType Directory -Force secrets | Out-Null
-[IO.File]::WriteAllText((Join-Path $PWD "secrets/admin-password"), "请替换为至少12个字符的初始密码", [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText((Join-Path $PWD "secrets/admin-password"), "请替换为至少9个字符的初始密码", [Text.UTF8Encoding]::new($false))
 Copy-Item .env.example .env
 docker compose build
 docker compose up -d

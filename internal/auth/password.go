@@ -16,6 +16,7 @@ import (
 const (
 	passwordSaltLength = 16
 	passwordKeyLength  = 32
+	minPasswordRunes   = 9
 	maxPasswordBytes   = 1024
 )
 
@@ -30,7 +31,7 @@ func DefaultPasswordParams() PasswordParams {
 }
 
 func ValidatePassword(password string) error {
-	if len(password) > maxPasswordBytes || utf8.RuneCountInString(password) < 12 {
+	if len(password) > maxPasswordBytes || utf8.RuneCountInString(password) < minPasswordRunes {
 		return ErrInvalidPassword
 	}
 	return nil

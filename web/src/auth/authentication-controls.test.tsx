@@ -96,7 +96,7 @@ describe('管理员认证控件', () => {
     await user.type(within(dialog).getByLabelText(/当前密码/), 'old password');
     await user.type(
       within(dialog).getByLabelText('新密码 *', { exact: true }),
-      'new password 123',
+      '123456789',
     );
     await user.type(
       within(dialog).getByLabelText(/确认新密码/),
@@ -110,16 +110,17 @@ describe('管理员认证控件', () => {
     );
 
     await user.clear(within(dialog).getByLabelText(/确认新密码/));
-    await user.type(
-      within(dialog).getByLabelText(/确认新密码/),
-      'new password 123',
-    );
-    await user.click(within(dialog).getByRole('button', { name: '修改密码' }));
+    await user.type(within(dialog).getByLabelText(/确认新密码/), '123456789');
+    const submitPassword = within(dialog).getByRole('button', {
+      name: '修改密码',
+    });
+    expect(submitPassword).toBeEnabled();
+    await user.click(submitPassword);
 
     await waitFor(() => expect(onSessionChanged).toHaveBeenCalledOnce());
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
       currentPassword: 'old password',
-      newPassword: 'new password 123',
+      newPassword: '123456789',
     });
     expect(
       screen.getByText('当前会话已退出，请使用新密码重新登录。'),

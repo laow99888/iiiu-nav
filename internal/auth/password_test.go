@@ -32,10 +32,13 @@ func TestPasswordHashRoundTrip(t *testing.T) {
 func TestPasswordValidationAndHashBounds(t *testing.T) {
 	t.Parallel()
 
-	for _, password := range []string{"short", strings.Repeat("a", maxPasswordBytes+1), "密码足够长但字符不够"} {
+	for _, password := range []string{strings.Repeat("a", 8), strings.Repeat("a", maxPasswordBytes+1), "密码不足八个"} {
 		if !errors.Is(ValidatePassword(password), ErrInvalidPassword) {
 			t.Fatalf("expected password %q to be rejected", password)
 		}
+	}
+	if err := ValidatePassword(strings.Repeat("a", 9)); err != nil {
+		t.Fatalf("expected nine-character password to pass: %v", err)
 	}
 	if err := ValidatePassword("这是一个足够长的管理员密码值"); err != nil {
 		t.Fatalf("expected Unicode password to pass: %v", err)
