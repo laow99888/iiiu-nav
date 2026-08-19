@@ -1,11 +1,11 @@
 import { messages } from '../i18n/messages';
 
 export type AdminSection =
-  'overview' | 'links' | 'categories' | 'data' | 'settings';
+  'dashboard' | 'links' | 'categories' | 'data' | 'settings';
 
 export function adminSectionTitle(section: AdminSection) {
   return {
-    overview: messages.admin.overview,
+    dashboard: messages.admin.dashboard,
     links: messages.admin.links,
     categories: messages.admin.categories,
     data: messages.admin.data,

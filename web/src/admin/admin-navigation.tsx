@@ -17,7 +17,7 @@ type NavigationProps = {
 };
 
 const navigationItems = [
-  { section: 'overview', label: messages.admin.overview, icon: LayoutGrid },
+  { section: 'dashboard', label: messages.admin.dashboard, icon: LayoutGrid },
   { section: 'categories', label: messages.admin.categories, icon: Settings },
   { section: 'links', label: messages.admin.links, icon: ListOrdered },
   { section: 'data', label: messages.admin.data, icon: Archive },

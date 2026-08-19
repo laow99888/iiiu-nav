@@ -1,7 +1,7 @@
 # iiiu-nav Development Plan
 
 > Document ID: `IIU-NAV-PLAN-001`
-> Version: `1.24`
+> Version: `1.25`
 > Updated: `2026-08-19`
 > Product status: `RELEASE_CANDIDATE`
 > Development status: `COMPLETE`
@@ -294,6 +294,9 @@ Acceptance criteria:
 - `/admin/login` provides a standalone administrator login screen and successful login redirects to `/admin`.
 - The public `/` route does not render private categories or management controls; it only links to the administrator login.
 - The `/admin` route uses a responsive left navigation and right workspace for categories, links, data, and settings.
+- The first administrator module is a dashboard with real link/category totals and a visitor chart that switches between 7-day and 30-day periods; placeholder analytics are visibly marked as mock data until persistent visit tracking is implemented.
+- Link management uses an administrator data table with current display order, URL, name, description, category, derived category privacy, and edit/delete operations.
+- Public navigation cards and administrator data-management surfaces use visibly distinct information density, navigation treatment, and visual styling.
 - Forms use responsive dialogs or drawers with loading, error, success, and disabled states.
 - Destructive actions require confirmation and state exactly what data is affected.
 - Icon-only controls have accessible names and tooltips where their meaning is not obvious.
@@ -476,6 +479,7 @@ Status values:
 | `NAV-403` | `DONE` | `NAV-401`, `NAV-402`            | Performance and footprint optimization                                                                       | `NFR-001` budgets are measured and met or exceptions are documented and accepted                                                                                                                                                                 | Initial JavaScript 46.59 KiB gzip against 120 KiB; final distroless image 6.33 MiB against 60 MiB; 500-link idle container RSS 4.43 MiB against 64 MiB; indexed 2,000-link SQLite read 5.36 ms; 100 real public HTTP reads at 2,000 links measured 15.32 ms median and 17.37 ms P95 with a 354,232-byte response; repeatable benchmark/index-plan test, full checks, and production build passed on 2026-08-19                                                                                                                                                                                                                                                                                                    |
 | `NAV-404` | `DONE` | `NAV-403`                       | Compatible images, deployment, and operator documentation                                                    | `NFR-006` passes and a new operator can deploy, reset the password, back up, restore, upgrade, and roll back using only repository docs                                                                                                          | Chromium, Firefox 153, and WebKit 26.5 core smoke tests passed at desktop and mobile widths; combined `linux/amd64` and `linux/arm64` OCI output built; native amd64 and QEMU user-mode arm64 binaries started and served the embedded application; hardened Compose deployment started with an isolated fresh volume; README and operator documentation cover initial deployment, TLS proxies, password reset, backup, restore, upgrades, schema rollback, multi-architecture publishing, compatibility, and troubleshooting; fresh dependency install, 67 frontend tests, Go tests, static analysis, production build, container test stage, and zero reachable dependency vulnerabilities passed on 2026-08-19 |
 | `NAV-405` | `DONE` | `NAV-404`                       | Separate public frontend and administrator backend, URL normalization, and metadata recognition improvements | Public navigation and `/admin/*` have separate shells and authentication flow; bare URLs default to HTTPS without blocking HTTP overrides; recognition handles common encodings and metadata fallbacks while failed recognition remains saveable | Public `/`, `/admin/login`, and authenticated `/admin` browser flow verified; backend scope prevents private categories from entering public reads; 20 frontend test files / 69 tests, focused Go metadata tests, production build, and responsive overflow check passed on 2026-08-19                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `NAV-406` | `DONE` | `NAV-405`                       | Administrator dashboard, visitor trend placeholder, and link management table                                | Dashboard exposes 7/30-day visitor trends and live content totals; link management exposes order, URL, name, description, category, privacy, and operations in a responsive data table; public and administrator styling is visibly distinct     | Visitor values remain explicitly labeled mock data until a later analytics persistence task; 20 frontend test files / 70 tests, Go tests, static analysis, production build, desktop and 733px browser screenshots, dashboard/table overflow checks, and live public/private table rows passed on 2026-08-19                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 ## 8. Delivery Sequence
 
@@ -485,7 +489,7 @@ Status values:
 4. Complete in-place management through `NAV-205`.
 5. Complete import, export, backup, restore, and migration safety through `NAV-305`.
 6. Complete quality gates and operator documentation through `NAV-404`.
-7. Keep public navigation and administration separate; evolve administrator-only workflows through `NAV-405` and later maintenance tasks.
+7. Keep public navigation and administration separate; evolve administrator-only workflows through `NAV-406` and later maintenance tasks.
 
 Do not mark a backlog item `DONE` from code inspection alone. Run and record the checks required by its completion criterion.
 
@@ -513,6 +517,7 @@ Do not mark a backlog item `DONE` from code inspection alone. Run and record the
 
 | Version | Date         | Change                                                                                                                                                                                                                   |
 | ------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `1.25`  | `2026-08-19` | Added an administrator dashboard with labeled mock 7/30-day visitor trends and live content totals, a dedicated link management data table, and a visually distinct operations-focused backend style                     |
 | `1.24`  | `2026-08-19` | Split the public navigation and administrator backend into separate routes and layouts; added HTTPS URL auto-normalization, failure-tolerant metadata recognition, charset decoding, and social metadata fallbacks       |
 | `1.23`  | `2026-08-19` | Completed supported-browser smoke coverage, multi-architecture OCI builds, hardened Compose deployment, production operation and recovery documentation, final quality gates, and release-candidate status               |
 | `1.22`  | `2026-08-19` | Added a repeatable indexed 2,000-link repository benchmark and completed JavaScript, image, idle-memory, and public-HTTP performance budget measurements                                                                 |

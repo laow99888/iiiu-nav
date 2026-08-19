@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 
 import { AuthenticationControls } from '../auth/authentication-controls';
 import { BackupDrawer } from '../backups/backup-drawer';
@@ -6,6 +6,7 @@ import { CategoryManager } from '../categories/category-manager';
 import { BookmarkExportDrawer } from '../imports/bookmark-export';
 import { BookmarkImportDrawer } from '../imports/bookmark-import';
 import { LinkEditor } from '../links/link-editor';
+import { LinkDeleteDialog } from '../links/link-delete-dialog';
 import { LinkOrderManager } from '../links/link-order-manager';
 import { messages } from '../i18n/messages';
 import { SearchEngineSettings } from '../search/search-engine-settings';
@@ -49,13 +50,14 @@ function AdminPageContent({
   searchEngines = [],
   site,
 }: Props) {
-  const [section, setSection] = useState<AdminSection>('overview');
+  const [section, setSection] = useState<AdminSection>('dashboard');
   const [activeCategoryID, setActiveCategoryID] = useState('');
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [linkEditor, setLinkEditor] = useState<{
     categoryID: string;
     link: NavigationLink | null;
   } | null>(null);
+  const [deleteLink, setDeleteLink] = useState<NavigationLink | null>(null);
   const [linkOrderOpen, setLinkOrderOpen] = useState(false);
   const [siteSettingsOpen, setSiteSettingsOpen] = useState(false);
   const [searchSettingsOpen, setSearchSettingsOpen] = useState(false);
@@ -66,20 +68,10 @@ function AdminPageContent({
   const resolvedSite = site ?? defaultSiteSettings;
   const activeCategory =
     categories.find((category) => category.id === activeCategoryID) ?? null;
-  const links = useMemo(
-    () =>
-      activeCategory
-        ? activeCategory.links
-        : categories.flatMap((item) => item.links),
-    [activeCategory, categories],
-  );
   const totalLinks = categories.reduce(
     (sum, category) => sum + category.links.length,
     0,
   );
-  const privateCategories = categories.filter(
-    (category) => category.visibility === 'private',
-  ).length;
 
   useEffect(() => {
     document.title = `${messages.admin.title} · ${resolvedSite.name}`;
@@ -141,7 +133,7 @@ function AdminPageContent({
                   {messages.categories.add}
                 </Button>
               ) : null}
-              {section === 'links' || section === 'overview' ? (
+              {section === 'links' ? (
                 <>
                   <Button
                     icon={Plus}
@@ -164,10 +156,9 @@ function AdminPageContent({
           </header>
 
           <AdminSectionContent
-            activeCategory={activeCategory}
             categories={categories}
-            links={links}
             onCategoryChange={setActiveCategoryID}
+            onDeleteLink={setDeleteLink}
             onEditLink={editLink}
             onOpenBackups={() => setBackupsOpen(true)}
             onOpenCategories={() => setCategoryManagerOpen(true)}
@@ -175,10 +166,7 @@ function AdminPageContent({
             onOpenImport={() => setImportOpen(true)}
             onOpenSearchSettings={() => setSearchSettingsOpen(true)}
             onOpenSiteSettings={() => setSiteSettingsOpen(true)}
-            privateCategories={privateCategories}
-            searchEngines={searchEngines}
             section={section}
-            totalLinks={totalLinks}
           />
         </div>
       </main>
@@ -233,6 +221,14 @@ function AdminPageContent({
         onClose={() => setLinkEditor(null)}
         onSaved={() => {
           setLinkEditor(null);
+          onRetry();
+        }}
+      />
+      <LinkDeleteDialog
+        link={deleteLink}
+        onClose={() => setDeleteLink(null)}
+        onDeleted={() => {
+          setDeleteLink(null);
           onRetry();
         }}
       />
