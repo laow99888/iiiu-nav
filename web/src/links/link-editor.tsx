@@ -10,6 +10,7 @@ import {
   recognizeLink,
   updateLink,
   uploadLogo,
+  normalizeLinkURL,
   type LinkInput,
 } from './link-api';
 import { LinkDeleteDialog } from './link-delete-dialog';
@@ -47,25 +48,28 @@ export function LinkEditor({
     null,
   );
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const validURL = isSupportedURL(url);
+  const validURL = isSupportedURL(normalizeLinkURL(url));
   const valid =
     selectedCategoryID !== '' &&
     validURL &&
     name.trim() !== '' &&
     Array.from(logoText.trim()).length <= 3;
   const busy = saving || recognizing || uploading;
-  const recognize = async () => {
-    if (!validURL || busy) return;
+  const recognize = async (value = url) => {
+    const normalized = normalizeLinkURL(value);
+    if (!isSupportedURL(normalized) || busy) return;
+    setURL(normalized);
     setRecognizing(true);
     setError(null);
     try {
-      const result = await recognizeLink(url.trim());
+      const result = await recognizeLink(normalized);
       setName(result.name);
       setDescription(result.description);
       setIconSource(result.iconSource);
       setIconValue(result.iconValue);
       if (result.iconSource === 'generated') setLogoText(result.iconValue);
     } catch {
+      setName((current) => current || fallbackName(normalized));
       setError('recognize');
     } finally {
       setRecognizing(false);
@@ -96,7 +100,7 @@ export function LinkEditor({
     setError(null);
     const input = {
       categoryId: selectedCategoryID,
-      url: url.trim(),
+      url: normalizeLinkURL(url),
       name: name.trim(),
       description: description.trim(),
       logoText: logoText.trim(),
@@ -156,6 +160,7 @@ export function LinkEditor({
             disabled={busy}
             error={url && !validURL ? messages.links.invalidURL : undefined}
             onInput={(event) => setURL(event.currentTarget.value)}
+            onBlur={() => setURL(normalizeLinkURL(url))}
           />
           <Button
             class="link-form__recognize"
@@ -294,5 +299,13 @@ function isSupportedURL(value: string) {
     );
   } catch {
     return false;
+  }
+}
+
+function fallbackName(value: string) {
+  try {
+    return new URL(value).hostname.replace(/^www\./i, '');
+  } catch {
+    return value;
   }
 }

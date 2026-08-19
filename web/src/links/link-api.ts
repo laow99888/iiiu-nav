@@ -15,6 +15,14 @@ export type RecognitionResult = {
   name: string;
 };
 
+export function normalizeLinkURL(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed || /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
 export function createLink(input: LinkInput) {
   return linkRequest('/api/links', {
     method: 'POST',
@@ -47,7 +55,7 @@ export async function recognizeLink(url: string): Promise<RecognitionResult> {
     method: 'POST',
     credentials: 'same-origin',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url: normalizeLinkURL(url) }),
   });
   if (!response.ok) throw new Error(`Recognition failed: ${response.status}`);
   const value: unknown = await response.json();

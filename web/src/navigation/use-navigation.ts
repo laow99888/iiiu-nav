@@ -7,7 +7,7 @@ type NavigationState =
   | { status: 'ready'; snapshot: NavigationSnapshot }
   | { status: 'error'; snapshot: null };
 
-export function useNavigation() {
+export function useNavigation(scope: 'all' | 'public' = 'all') {
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState<NavigationState>({
     status: 'loading',
@@ -17,7 +17,7 @@ export function useNavigation() {
   useEffect(() => {
     const controller = new AbortController();
     setState({ status: 'loading', snapshot: null });
-    fetchNavigation(controller.signal)
+    fetchNavigation(controller.signal, scope)
       .then((snapshot) => setState({ status: 'ready', snapshot }))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -26,7 +26,7 @@ export function useNavigation() {
         setState({ status: 'error', snapshot: null });
       });
     return () => controller.abort();
-  }, [revision]);
+  }, [revision, scope]);
 
   const retry = useCallback(() => setRevision((value) => value + 1), []);
   return { ...state, retry };

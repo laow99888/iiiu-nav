@@ -147,7 +147,8 @@ func decodeLinkInput(writer http.ResponseWriter, request *http.Request) (navigat
 		return navigation.LinkInput{}, false
 	}
 	categoryID, err := strconv.ParseInt(body.CategoryID, 10, 64)
-	parsedURL, urlErr := url.ParseRequestURI(strings.TrimSpace(body.URL))
+	rawURL := normalizeHTTPURL(body.URL)
+	parsedURL, urlErr := url.ParseRequestURI(rawURL)
 	name, description, logoText := strings.TrimSpace(body.Name), strings.TrimSpace(body.Description), strings.TrimSpace(body.LogoText)
 	if err != nil || categoryID <= 0 || urlErr != nil || parsedURL.Host == "" || parsedURL.User != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || name == "" || utf8.RuneCountInString(name) > 120 || utf8.RuneCountInString(description) > 300 || utf8.RuneCountInString(logoText) > 3 {
 		writeError(writer, http.StatusUnprocessableEntity, "link_invalid")
@@ -170,6 +171,14 @@ func decodeLinkInput(writer http.ResponseWriter, request *http.Request) (navigat
 		return navigation.LinkInput{}, false
 	}
 	return navigation.LinkInput{CategoryID: categoryID, Name: name, Description: description, URL: parsedURL.String(), IconSource: iconSource, IconValue: iconValue}, true
+}
+
+func normalizeHTTPURL(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed != "" && !strings.Contains(trimmed, "://") {
+		return "https://" + trimmed
+	}
+	return trimmed
 }
 
 func positiveID(writer http.ResponseWriter, value, code string) (int64, bool) {

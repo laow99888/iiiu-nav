@@ -24,6 +24,7 @@ type AuthenticationControlsProps = {
   onOpenBookmarkImport?: () => void;
   onOpenBookmarkExport?: () => void;
   onOpenBackups?: () => void;
+  loginHref?: string;
 };
 
 export function AuthenticationControls({
@@ -34,6 +35,7 @@ export function AuthenticationControls({
   onOpenBookmarkImport,
   onOpenBookmarkExport,
   onOpenBackups,
+  loginHref,
 }: AuthenticationControlsProps) {
   const [loginOpen, setLoginOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -144,6 +146,25 @@ export function AuthenticationControls({
               },
             ]}
           />
+        ) : loginHref ? (
+          compact ? (
+            <Tooltip content={messages.auth.login}>
+              <Button
+                variant="ghost"
+                icon={Lock}
+                aria-label={messages.auth.login}
+                onClick={() => window.location.assign(loginHref)}
+              />
+            </Tooltip>
+          ) : (
+            <Button
+              variant="ghost"
+              icon={Lock}
+              onClick={() => window.location.assign(loginHref)}
+            >
+              {messages.auth.login}
+            </Button>
+          )
         ) : compact ? (
           <Tooltip content={messages.auth.login}>
             <Button

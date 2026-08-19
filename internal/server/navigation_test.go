@@ -69,6 +69,25 @@ func TestNavigationInvalidSessionFallsBackToPublic(t *testing.T) {
 	assertClearedSessionCookie(t, response)
 }
 
+func TestAuthenticatedPublicScopeExcludesPrivateNavigation(t *testing.T) {
+	t.Parallel()
+
+	reader := &fakeNavigationReader{}
+	handler := New(Config{Auth: &fakeAuthenticator{}, Navigation: reader})
+	request := httptest.NewRequest(http.MethodGet, "/api/navigation?scope=public", nil)
+	request.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "active-token"})
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK || reader.includePrivate {
+		t.Fatalf("expected authenticated public scope, status=%d private=%v", response.Code, reader.includePrivate)
+	}
+	if !strings.Contains(response.Body.String(), `"administrator":true`) {
+		t.Fatalf("expected administrator status in public scope response: %s", response.Body.String())
+	}
+}
+
 func TestNavigationReadErrorsArePrivate(t *testing.T) {
 	t.Parallel()
 

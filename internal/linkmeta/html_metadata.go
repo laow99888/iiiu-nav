@@ -14,7 +14,7 @@ func parseHTML(content []byte, pageURL *url.URL) (Result, []*url.URL, error) {
 		return Result{}, nil, err
 	}
 	var result Result
-	var ogTitle, ogDescription string
+	var ogTitle, ogDescription, twitterTitle, twitterDescription, heading string
 	var icons []*url.URL
 	baseURL := pageURL
 	var visit func(*html.Node)
@@ -28,8 +28,12 @@ func parseHTML(content []byte, pageURL *url.URL) (Result, []*url.URL, error) {
 					}
 				}
 			case "title":
-				if result.Title == "" && node.FirstChild != nil {
-					result.Title = cleanText(node.FirstChild.Data, 120)
+				if result.Title == "" {
+					result.Title = cleanText(nodeText(node), 120)
+				}
+			case "h1":
+				if heading == "" {
+					heading = cleanText(nodeText(node), 120)
 				}
 			case "meta":
 				name := strings.ToLower(attribute(node, "name"))
@@ -43,6 +47,12 @@ func parseHTML(content []byte, pageURL *url.URL) (Result, []*url.URL, error) {
 				}
 				if property == "og:description" && ogDescription == "" {
 					ogDescription = cleanText(value, 300)
+				}
+				if name == "twitter:title" && twitterTitle == "" {
+					twitterTitle = cleanText(value, 120)
+				}
+				if name == "twitter:description" && twitterDescription == "" {
+					twitterDescription = cleanText(value, 300)
 				}
 			case "link":
 				rel := strings.Fields(strings.ToLower(attribute(node, "rel")))
@@ -63,10 +73,33 @@ func parseHTML(content []byte, pageURL *url.URL) (Result, []*url.URL, error) {
 	if result.Title == "" {
 		result.Title = ogTitle
 	}
+	if result.Title == "" {
+		result.Title = twitterTitle
+	}
+	if result.Title == "" {
+		result.Title = heading
+	}
 	if result.Description == "" {
 		result.Description = ogDescription
 	}
+	if result.Description == "" {
+		result.Description = twitterDescription
+	}
 	return result, icons, nil
+}
+
+func nodeText(node *html.Node) string {
+	if node == nil {
+		return ""
+	}
+	if node.Type == html.TextNode {
+		return node.Data
+	}
+	var parts []string
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		parts = append(parts, nodeText(child))
+	}
+	return strings.Join(parts, " ")
 }
 
 func attribute(node *html.Node, key string) string {

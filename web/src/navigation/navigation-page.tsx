@@ -35,6 +35,7 @@ type NavigationPageProps = {
   categories: readonly NavigationCategory[];
   onRetry?: () => void;
   onSessionChanged?: () => void;
+  loginHref?: string;
   searchEngines?: readonly SearchEngine[];
   site?: SiteSettings;
   siteName?: string;
@@ -54,6 +55,7 @@ function NavigationPageContent({
   categories,
   onRetry,
   onSessionChanged = () => undefined,
+  loginHref,
   searchEngines = defaultSearchEngines,
   site,
   siteName = 'iiiu-nav',
@@ -131,6 +133,7 @@ function NavigationPageContent({
           onOpenBookmarkImport={() => setBookmarkImportOpen(true)}
           onOpenBookmarkExport={() => setBookmarkExportOpen(true)}
           onOpenBackups={() => setBackupsOpen(true)}
+          loginHref={loginHref}
         />
       </aside>
 
@@ -151,6 +154,7 @@ function NavigationPageContent({
               onOpenBookmarkImport={() => setBookmarkImportOpen(true)}
               onOpenBookmarkExport={() => setBookmarkExportOpen(true)}
               onOpenBackups={() => setBackupsOpen(true)}
+              loginHref={loginHref}
             />
           </div>
         </header>

@@ -67,7 +67,7 @@ func (handler *metadataHandler) recognize(writer http.ResponseWriter, request *h
 		writeError(writer, http.StatusBadRequest, "invalid_request")
 		return
 	}
-	result, err := handler.recognizer.Recognize(request.Context(), body.URL)
+	result, err := handler.recognizer.Recognize(request.Context(), normalizeHTTPURL(body.URL))
 	if err != nil {
 		writeError(writer, http.StatusUnprocessableEntity, "metadata_recognition_failed")
 		return

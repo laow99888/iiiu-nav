@@ -1,6 +1,7 @@
 package linkmeta
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"golang.org/x/net/html/charset"
 )
 
 const (
@@ -88,6 +91,10 @@ func (recognizer *Recognizer) Recognize(ctx context.Context, rawURL string) (Res
 	if err != nil {
 		return Result{}, fmt.Errorf("read page: %w", err)
 	}
+	body, err = decodeHTML(body, response.Header.Get("Content-Type"))
+	if err != nil {
+		return Result{}, fmt.Errorf("decode page: %w", err)
+	}
 	baseURL := response.Request.URL
 	metadata, iconCandidates, err := parseHTML(body, baseURL)
 	if err != nil {
@@ -103,6 +110,12 @@ func (recognizer *Recognizer) Recognize(ctx context.Context, rawURL string) (Res
 		}
 	}
 	return metadata, nil
+}
+
+func decodeHTML(content []byte, contentType string) ([]byte, error) {
+	encoding, _, _ := charset.DetermineEncoding(content, contentType)
+	reader := encoding.NewDecoder().Reader(bytes.NewReader(content))
+	return io.ReadAll(reader)
 }
 
 func (recognizer *Recognizer) fetchIcon(ctx context.Context, iconURL *url.URL) ([]byte, string, error) {

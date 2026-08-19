@@ -59,6 +59,29 @@ describe('链接管理', () => {
     });
   });
 
+  it('裸地址自动补全 HTTPS 后可以直接保存', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response('{}', { status: 201 }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderAdministrator();
+
+    await user.click(screen.getByRole('button', { name: '添加链接' }));
+    const drawer = screen.getByRole('dialog', { name: '添加链接' });
+    const url = within(drawer).getByLabelText(/链接地址/);
+    await user.type(url, 'example.com/docs');
+    await user.tab();
+    expect(url).toHaveValue('https://example.com/docs');
+    await user.type(within(drawer).getByLabelText(/名称/), '示例站点');
+    await user.click(within(drawer).getByRole('button', { name: '保存' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual(
+      expect.objectContaining({ url: 'https://example.com/docs' }),
+    );
+  });
+
   it('识别站点信息后仍允许手动调整并保存缓存 Logo', async () => {
     const user = userEvent.setup();
     const fetchMock = vi

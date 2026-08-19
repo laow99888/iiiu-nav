@@ -16,7 +16,7 @@ docker compose build
 docker compose up -d
 ```
 
-打开 `http://127.0.0.1:8080`。Compose 默认只监听本机回环地址；公网部署应通过 HTTPS 反向代理访问。首次启动会读取密码文件并只保存 Argon2id 哈希，后续启动不会再读取该文件。
+打开 `http://127.0.0.1:8080` 查看公开前台；管理员从 `/admin/login` 进入独立后台。Compose 默认只监听本机回环地址；公网部署应通过 HTTPS 反向代理访问。首次启动会读取密码文件并只保存 Argon2id 哈希，后续启动不会再读取该文件。
 
 ```powershell
 Invoke-WebRequest http://127.0.0.1:8080/healthz

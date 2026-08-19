@@ -57,12 +57,16 @@ const logoTones: readonly LogoTone[] = [
 
 export async function fetchNavigation(
   signal?: AbortSignal,
+  scope: 'all' | 'public' = 'all',
 ): Promise<NavigationSnapshot> {
-  const response = await fetch('/api/navigation', {
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
-    signal,
-  });
+  const response = await fetch(
+    scope === 'public' ? '/api/navigation?scope=public' : '/api/navigation',
+    {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+      signal,
+    },
+  );
   if (!response.ok) {
     throw new Error(`Navigation request failed: ${response.status}`);
   }

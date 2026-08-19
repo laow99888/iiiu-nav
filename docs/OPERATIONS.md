@@ -57,7 +57,7 @@ docker compose up -d
 docker compose logs app
 ```
 
-日志应包含 `administrator created`、`data store ready` 和 `iiiu-nav listening`。检查服务：
+日志应包含 `administrator created`、`data store ready` 和 `iiiu-nav listening`。打开根路径查看公开前台，管理员从 `/admin/login` 进入后台。检查服务：
 
 ```powershell
 Invoke-WebRequest http://127.0.0.1:8080/healthz

@@ -79,6 +79,38 @@ func TestRecognizeFallsBackToRootFavicon(t *testing.T) {
 	}
 }
 
+func TestParseHTMLUsesNestedAndSocialMetadataFallbacks(t *testing.T) {
+	t.Parallel()
+	result, _, err := parseHTML([]byte(`<html><head><meta name="twitter:title" content="Social title"><meta name="twitter:description" content="Social description"></head><body><h1>Ignored fallback</h1></body></html>`), mustURL(t, "https://example.test"))
+	if err != nil {
+		t.Fatalf("parse HTML: %v", err)
+	}
+	if result.Title != "Social title" || result.Description != "Social description" {
+		t.Fatalf("unexpected metadata: %#v", result)
+	}
+}
+
+func TestDecodeHTMLHonorsDeclaredLegacyCharset(t *testing.T) {
+	t.Parallel()
+	content := []byte("<title>\xB2\xE2\xCA\xD4</title>")
+	decoded, err := decodeHTML(content, "text/html; charset=gbk")
+	if err != nil {
+		t.Fatalf("decode HTML: %v", err)
+	}
+	if !strings.Contains(string(decoded), "测试") {
+		t.Fatalf("decoded content does not contain expected text: %q", decoded)
+	}
+}
+
+func mustURL(t *testing.T, value string) *url.URL {
+	t.Helper()
+	parsed, err := url.Parse(value)
+	if err != nil {
+		t.Fatalf("parse URL: %v", err)
+	}
+	return parsed
+}
+
 func TestRecognizeRejectsInvalidContentAndOversizedHTML(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {

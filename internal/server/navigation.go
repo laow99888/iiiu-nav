@@ -67,7 +67,8 @@ func (handler *navigationHandler) read(writer http.ResponseWriter, request *http
 		writer.Header().Set("Cache-Control", "public, max-age=60")
 	}
 
-	groups, err := handler.reader.Navigation(request.Context(), administrator)
+	includePrivate := administrator && request.URL.Query().Get("scope") != "public"
+	groups, err := handler.reader.Navigation(request.Context(), includePrivate)
 	if err != nil {
 		setPrivateResponseHeaders(writer)
 		writeError(writer, http.StatusInternalServerError, "navigation_read_failed")
