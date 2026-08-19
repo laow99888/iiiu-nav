@@ -211,7 +211,20 @@ func TestNavigationHTTPPrivacyWorkflow(t *testing.T) {
 	}
 	logoResponse.Body.Close()
 	response = postJSON(t, client, testServer.URL+"/api/metadata/recognize", testServer.URL, map[string]string{"url": testServer.URL})
-	assertStatus(t, response, http.StatusUnprocessableEntity)
+	if response.StatusCode != http.StatusUnprocessableEntity {
+		content, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		t.Fatalf("recognize unsafe metadata status=%d body=%s", response.StatusCode, content)
+	}
+	var metadataFailure map[string]string
+	if err := json.NewDecoder(response.Body).Decode(&metadataFailure); err != nil {
+		response.Body.Close()
+		t.Fatalf("decode metadata failure: %v", err)
+	}
+	response.Body.Close()
+	if metadataFailure["error"] != "metadata_target_not_public" {
+		t.Fatalf("unexpected metadata failure: %+v", metadataFailure)
+	}
 	response = postJSON(t, client, testServer.URL+"/api/metadata/recognize", testServer.URL, map[string]string{"url": "https://recognized.example/page"})
 	if response.StatusCode != http.StatusOK {
 		content, _ := io.ReadAll(response.Body)

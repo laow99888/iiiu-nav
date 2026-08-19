@@ -13,6 +13,7 @@ services:
     environment:
       ADMIN_PASSWORD_FILE: /run/secrets/admin-password
       IIU_NAV_ADDR: :8080
+      IIU_NAV_TIMEZONE: ${IIU_NAV_TIMEZONE:-Asia/Shanghai}
     secrets:
       - admin-password
     volumes:

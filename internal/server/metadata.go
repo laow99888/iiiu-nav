@@ -69,7 +69,7 @@ func (handler *metadataHandler) recognize(writer http.ResponseWriter, request *h
 	}
 	result, err := handler.recognizer.Recognize(request.Context(), normalizeHTTPURL(body.URL))
 	if err != nil {
-		writeError(writer, http.StatusUnprocessableEntity, "metadata_recognition_failed")
+		writeError(writer, http.StatusUnprocessableEntity, metadataRecognitionErrorCode(err))
 		return
 	}
 	response := handler.responseFromRecognition(body.URL, result, "", navigation.IconSourceGenerated)
@@ -92,10 +92,17 @@ func (handler *metadataHandler) refresh(writer http.ResponseWriter, request *htt
 	}
 	updated, err := handler.refreshLink(request.Context(), link)
 	if err != nil {
-		writeError(writer, http.StatusUnprocessableEntity, "metadata_recognition_failed")
+		writeError(writer, http.StatusUnprocessableEntity, metadataRecognitionErrorCode(err))
 		return
 	}
 	writeJSON(writer, http.StatusOK, linkResponseFromRecord(updated))
+}
+
+func metadataRecognitionErrorCode(err error) string {
+	if errors.Is(err, linkmeta.ErrUnsafeURL) {
+		return "metadata_target_not_public"
+	}
+	return "metadata_recognition_failed"
 }
 
 func (handler *metadataHandler) refreshAll(writer http.ResponseWriter, request *http.Request) {

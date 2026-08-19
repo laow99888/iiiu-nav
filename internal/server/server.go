@@ -32,6 +32,7 @@ type Config struct {
 	Metadata    *linkmeta.Recognizer
 	Navigation  NavigationReader
 	Settings    SettingsStore
+	Analytics   PageViewAnalytics
 	Version     string
 }
 
@@ -70,6 +71,9 @@ func New(config Config) http.Handler {
 	if config.Auth != nil && config.Settings != nil {
 		registerSearchSettingsRoutes(mux, config.Auth, config.Settings)
 	}
+	if config.Auth != nil && config.Analytics != nil {
+		registerAnalyticsRoutes(mux, config.Auth, config.Analytics)
+	}
 	if config.Auth != nil && config.Categories != nil {
 		registerCategoryRoutes(mux, config.Auth, config.Categories, config.Links, config.Logos)
 	}
@@ -107,7 +111,11 @@ func New(config Config) http.Handler {
 			http.Error(writer, "frontend is served by the Vite development server", http.StatusNotFound)
 		})
 	} else {
-		mux.Handle("/", spaHandler(config.Assets))
+		frontend := spaHandler(config.Assets)
+		if config.Analytics != nil {
+			frontend = trackPublicPageViews(frontend, config.Auth, config.Analytics)
+		}
+		mux.Handle("/", frontend)
 	}
 
 	return securityHeaders(sameOriginOnly(maintenanceRequests(maintenance, indexingHeaders(config.Settings, mux))))

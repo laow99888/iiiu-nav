@@ -180,6 +180,31 @@ describe('链接管理', () => {
     );
   });
 
+  it('识别目标被网络安全策略阻止时显示具体原因', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: 'metadata_target_not_public' }), {
+          status: 422,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+    renderAdministrator();
+
+    await user.click(screen.getByRole('button', { name: '添加链接' }));
+    const drawer = screen.getByRole('dialog', { name: '添加链接' });
+    await user.type(within(drawer).getByLabelText(/链接地址/), 'localhost');
+    await user.click(
+      within(drawer).getByRole('button', { name: '识别站点信息' }),
+    );
+
+    expect(await within(drawer).findByRole('alert')).toHaveTextContent(
+      '指向本机、内网或保留网络',
+    );
+  });
+
   it('编辑链接时可移动分类并覆盖字段', async () => {
     const user = userEvent.setup();
     const fetchMock = vi

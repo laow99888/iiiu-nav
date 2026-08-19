@@ -3,8 +3,14 @@ import { useMemo, useState } from 'preact/hooks';
 import { messages } from '../i18n/messages';
 import { LinkLogo } from '../navigation/link-logo';
 import type { NavigationCategory, NavigationLink } from '../navigation/types';
-import { Pencil, Search, Trash2 } from '../ui/icons/interface-icons';
-import { Button } from '../ui/primitives';
+import {
+  ListOrdered,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from '../ui/icons/interface-icons';
+import { Button, EmptyState } from '../ui/primitives';
 
 type LinkRow = {
   category: NavigationCategory;
@@ -14,11 +20,17 @@ type LinkRow = {
 
 type Props = {
   categories: readonly NavigationCategory[];
+  onCreate: () => void;
   onDelete: (link: NavigationLink) => void;
   onEdit: (link: NavigationLink) => void;
 };
 
-export function AdminLinkTable({ categories, onDelete, onEdit }: Props) {
+export function AdminLinkTable({
+  categories,
+  onCreate,
+  onDelete,
+  onEdit,
+}: Props) {
   const [categoryID, setCategoryID] = useState('');
   const [query, setQuery] = useState('');
   const rows = useMemo(() => buildRows(categories), [categories]);
@@ -108,7 +120,10 @@ export function AdminLinkTable({ categories, onDelete, onEdit }: Props) {
                     </div>
                   </td>
                   <td>
-                    <span class="admin-link-description">
+                    <span
+                      class="admin-link-description"
+                      title={link.description || undefined}
+                    >
                       {link.description || '—'}
                     </span>
                   </td>
@@ -150,7 +165,26 @@ export function AdminLinkTable({ categories, onDelete, onEdit }: Props) {
           </table>
         </div>
       ) : (
-        <p class="admin-table-empty">{messages.admin.noLinkResults}</p>
+        <EmptyState
+          icon={ListOrdered}
+          title={
+            rows.length > 0
+              ? messages.admin.noFilteredLinksTitle
+              : messages.admin.noLinksTitle
+          }
+          description={
+            rows.length > 0
+              ? messages.admin.noFilteredLinksDescription
+              : messages.admin.noLinksDescription
+          }
+          action={
+            rows.length === 0 && categories.length > 0 ? (
+              <Button icon={Plus} variant="primary" onClick={onCreate}>
+                {messages.admin.createFirstLink}
+              </Button>
+            ) : undefined
+          }
+        />
       )}
     </section>
   );

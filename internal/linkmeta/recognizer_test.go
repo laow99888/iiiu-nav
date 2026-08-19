@@ -3,6 +3,7 @@ package linkmeta
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/netip"
@@ -145,5 +146,21 @@ func TestPublicIPAddressPolicy(t *testing.T) {
 		if actual := isPublicIP(netip.MustParseAddr(value)); actual != expected {
 			t.Errorf("isPublicIP(%s) = %v, want %v", value, actual, expected)
 		}
+	}
+}
+
+func TestProductionClientRejectsRedirectToLoopback(t *testing.T) {
+	t.Parallel()
+	recognizer := New()
+	client, ok := recognizer.client.(*http.Client)
+	if !ok {
+		t.Fatalf("production recognizer client type = %T", recognizer.client)
+	}
+	err := client.CheckRedirect(
+		&http.Request{URL: mustURL(t, "http://127.0.0.1/private")},
+		[]*http.Request{{URL: mustURL(t, "https://example.com")}},
+	)
+	if !errors.Is(err, ErrUnsafeURL) {
+		t.Fatalf("redirect validation error = %v, want ErrUnsafeURL", err)
 	}
 }

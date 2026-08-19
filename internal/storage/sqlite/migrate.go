@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const LatestSchemaVersion = 2
+const LatestSchemaVersion = 3
 
 var (
 	ErrNewerSchema       = errors.New("database schema is newer than this application")
@@ -39,6 +39,7 @@ type migration struct {
 var migrations = []migration{
 	{version: 1, name: "initial", path: "migrations/001_initial.sql"},
 	{version: 2, name: "link_url_index", path: "migrations/002_link_url_index.sql"},
+	{version: 3, name: "daily_page_views", path: "migrations/003_daily_page_views.sql"},
 }
 
 const createMigrationsTable = `

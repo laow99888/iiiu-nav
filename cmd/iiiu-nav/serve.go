@@ -10,7 +10,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata"
 
+	"iiiu-nav/internal/analytics"
 	"iiiu-nav/internal/auth"
 	"iiiu-nav/internal/backup"
 	"iiiu-nav/internal/bookmarks"
@@ -46,6 +48,17 @@ func serve(logger *slog.Logger) error {
 	}
 	if created {
 		logger.Info("administrator created")
+	}
+	analyticsLocation, err := time.LoadLocation(environment("IIU_NAV_TIMEZONE", "Asia/Shanghai"))
+	if err != nil {
+		return commandError("load analytics time zone", err)
+	}
+	pageViews, err := analytics.New(analytics.Config{
+		Location:   analyticsLocation,
+		Repository: data.store,
+	})
+	if err != nil {
+		return commandError("configure analytics", err)
 	}
 
 	schemaVersion, err := data.store.SchemaVersion(startupContext)
@@ -91,6 +104,7 @@ func serve(logger *slog.Logger) error {
 			Metadata:    linkmeta.New(),
 			Navigation:  data.store,
 			Settings:    data.store,
+			Analytics:   pageViews,
 			Version:     version,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,

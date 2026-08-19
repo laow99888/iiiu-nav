@@ -8,20 +8,39 @@ import (
 	"time"
 )
 
+type ipResolver interface {
+	LookupNetIP(context.Context, string, string) ([]netip.Addr, error)
+}
+
 func validatePublicURL(ctx context.Context, target *url.URL) error {
+	return validateURLWithResolver(ctx, target, net.DefaultResolver)
+}
+
+func validateURLWithResolver(ctx context.Context, target *url.URL, resolver ipResolver) error {
 	if target == nil || target.User != nil || target.Hostname() == "" || (target.Scheme != "http" && target.Scheme != "https") {
 		return ErrUnsafeURL
 	}
-	addresses, err := net.DefaultResolver.LookupNetIP(ctx, "ip", target.Hostname())
+	_, err := resolveAllowedAddresses(ctx, resolver, target.Hostname())
+	return err
+}
+
+func resolveAllowedAddresses(ctx context.Context, resolver ipResolver, host string) ([]netip.Addr, error) {
+	if address, err := netip.ParseAddr(host); err == nil {
+		if !isPublicIP(address) {
+			return nil, ErrUnsafeURL
+		}
+		return []netip.Addr{address}, nil
+	}
+	addresses, err := resolver.LookupNetIP(ctx, "ip", host)
 	if err != nil || len(addresses) == 0 {
-		return ErrUnsafeURL
+		return nil, ErrUnsafeURL
 	}
 	for _, address := range addresses {
-		if !isPublicIP(address) {
-			return ErrUnsafeURL
+		if !isPublicIP(address) && !proxyFakeIPPrefix.Contains(address.Unmap()) {
+			return nil, ErrUnsafeURL
 		}
 	}
-	return nil
+	return addresses, nil
 }
 
 func publicDialer(ctx context.Context, network, address string) (net.Conn, error) {
@@ -29,14 +48,9 @@ func publicDialer(ctx context.Context, network, address string) (net.Conn, error
 	if err != nil {
 		return nil, ErrUnsafeURL
 	}
-	addresses, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
-	if err != nil || len(addresses) == 0 {
-		return nil, ErrUnsafeURL
-	}
-	for _, resolved := range addresses {
-		if !isPublicIP(resolved) {
-			return nil, ErrUnsafeURL
-		}
+	addresses, err := resolveAllowedAddresses(ctx, net.DefaultResolver, host)
+	if err != nil {
+		return nil, err
 	}
 	dialer := net.Dialer{Timeout: 4 * time.Second, KeepAlive: 30 * time.Second}
 	return dialer.DialContext(ctx, network, net.JoinHostPort(addresses[0].String(), port))
@@ -62,3 +76,5 @@ var blockedPrefixes = []netip.Prefix{
 	netip.MustParsePrefix("203.0.113.0/24"), netip.MustParsePrefix("240.0.0.0/4"),
 	netip.MustParsePrefix("2001:db8::/32"),
 }
+
+var proxyFakeIPPrefix = netip.MustParsePrefix("198.18.0.0/15")

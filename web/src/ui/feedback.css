@@ -1,3 +1,9 @@
+.ui-skeleton {
+  display: block;
+  background: color-mix(in srgb, var(--color-hover) 78%, var(--color-border));
+  animation: ui-skeleton-pulse 1.2s ease-in-out infinite alternate;
+}
+
 .ui-empty {
   display: grid;
   min-height: 320px;
@@ -124,5 +130,15 @@
   from {
     opacity: 0;
     transform: translateY(-6px);
+  }
+}
+
+@keyframes ui-skeleton-pulse {
+  from {
+    opacity: 0.56;
+  }
+
+  to {
+    opacity: 0.94;
   }
 }

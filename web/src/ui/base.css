@@ -23,6 +23,12 @@ input,
 textarea,
 select {
   font: inherit;
+  letter-spacing: 0;
+}
+
+.lucide {
+  display: block;
+  flex: 0 0 auto;
 }
 
 button,

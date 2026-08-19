@@ -1,4 +1,5 @@
-import { useState } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
+import { useEffect, useState } from 'preact/hooks';
 
 import { messages } from '../i18n/messages';
 import type { NavigationCategory } from '../navigation/types';
@@ -6,18 +7,18 @@ import {
   LayoutGrid,
   ListOrdered,
   Monitor,
+  RefreshCw,
   type LucideIcon,
 } from '../ui/icons/interface-icons';
+import { Button } from '../ui/primitives';
+import { fetchPageViews, type DailyPageViews } from './analytics-api';
 
 type Period = 7 | 30;
 
-const visitorSeries: Record<Period, readonly number[]> = {
-  7: [42, 58, 51, 73, 64, 81, 76],
-  30: [
-    34, 42, 38, 55, 49, 61, 58, 47, 66, 72, 64, 79, 83, 68, 74, 91, 86, 77, 95,
-    88, 102, 97, 84, 108, 114, 99, 121, 116, 128, 137,
-  ],
-};
+type AnalyticsState =
+  | { status: 'loading' }
+  | { status: 'error' }
+  | { status: 'ready'; series: DailyPageViews[] };
 
 export function AdminDashboard({
   categories,
@@ -25,8 +26,25 @@ export function AdminDashboard({
   categories: readonly NavigationCategory[];
 }) {
   const [period, setPeriod] = useState<Period>(7);
-  const series = visitorSeries[period];
-  const visitors = series.reduce((total, value) => total + value, 0);
+  const [analytics, setAnalytics] = useState<AnalyticsState>({
+    status: 'loading',
+  });
+  const [requestVersion, setRequestVersion] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    setAnalytics({ status: 'loading' });
+    void fetchPageViews(controller.signal)
+      .then((series) => setAnalytics({ status: 'ready', series }))
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setAnalytics({ status: 'error' });
+        }
+      });
+    return () => controller.abort();
+  }, [requestVersion]);
+  const series =
+    analytics.status === 'ready' ? analytics.series.slice(-period) : [];
+  const visitors = series.reduce((total, item) => total + item.views, 0);
   const totalLinks = categories.reduce(
     (total, category) => total + category.links.length,
     0,
@@ -38,8 +56,9 @@ export function AdminDashboard({
         <AdminMetric
           icon={Monitor}
           label={messages.admin.visitorTotal}
-          value={formatNumber(visitors)}
-          badge={messages.admin.mockData}
+          value={
+            analytics.status === 'ready' ? formatNumber(visitors) : '\u2014'
+          }
           testID="visitor-total"
         />
         <AdminMetric
@@ -60,7 +79,7 @@ export function AdminDashboard({
       >
         <header class="admin-analytics-panel__header">
           <div>
-            <span class="admin-section-kicker">{messages.admin.mockData}</span>
+            <span class="admin-section-kicker">{messages.admin.dailyPV}</span>
             <h2 id="visitor-trend-title">{messages.admin.visitorTrend}</h2>
           </div>
           <div
@@ -76,20 +95,45 @@ export function AdminDashboard({
             </PeriodButton>
           </div>
         </header>
-        <VisitorChart period={period} series={series} />
+        {analytics.status === 'loading' ? (
+          <AnalyticsState
+            status="status"
+            title={messages.admin.analyticsLoading}
+            description={messages.admin.analyticsLoadingDescription}
+          />
+        ) : analytics.status === 'error' ? (
+          <AnalyticsState
+            status="alert"
+            title={messages.admin.analyticsFailed}
+            description={messages.admin.analyticsFailedDescription}
+            action={
+              <Button
+                icon={RefreshCw}
+                onClick={() => setRequestVersion((current) => current + 1)}
+              >
+                {messages.admin.analyticsRetry}
+              </Button>
+            }
+          />
+        ) : visitors === 0 ? (
+          <AnalyticsState
+            title={messages.admin.analyticsEmpty}
+            description={messages.admin.analyticsEmptyDescription}
+          />
+        ) : (
+          <VisitorChart period={period} series={series} />
+        )}
       </section>
     </div>
   );
 }
 
 function AdminMetric({
-  badge,
   icon: Icon,
   label,
   testID,
   value,
 }: {
-  badge?: string;
   icon: LucideIcon;
   label: string;
   testID?: string;
@@ -104,8 +148,30 @@ function AdminMetric({
         <span class="admin-metric__label">{label}</span>
         <strong data-testid={testID}>{value}</strong>
       </div>
-      {badge ? <span class="admin-data-badge">{badge}</span> : null}
     </article>
+  );
+}
+
+function AnalyticsState({
+  action,
+  description,
+  status,
+  title,
+}: {
+  action?: ComponentChildren;
+  description: string;
+  status?: 'alert' | 'status';
+  title: string;
+}) {
+  return (
+    <div class="admin-analytics-state" role={status}>
+      <span aria-hidden="true">
+        <Monitor />
+      </span>
+      <strong>{title}</strong>
+      <p>{description}</p>
+      {action}
+    </div>
   );
 }
 
@@ -134,39 +200,65 @@ function VisitorChart({
   series,
 }: {
   period: Period;
-  series: readonly number[];
+  series: readonly DailyPageViews[];
 }) {
-  const maximum = Math.max(...series);
+  const maximum = Math.max(...series.map((item) => item.views));
   return (
     <div
-      class={`admin-visitor-chart admin-visitor-chart--${period}`}
+      class="admin-visitor-chart-frame"
       role="img"
       aria-label={messages.admin.visitorChartLabel(period)}
     >
-      {series.map((value, index) => {
-        const height = Math.max(8, Math.round((value / maximum) * 100));
-        return (
-          <div
-            class="admin-visitor-chart__item"
-            key={`${period}-${index}`}
-            title={`第 ${index + 1} 天：${value}`}
-          >
-            <span class="admin-visitor-chart__track" aria-hidden="true">
-              <span style={{ height: `${height}%` }} />
-            </span>
-            <span class="admin-visitor-chart__label">
-              {chartLabel(period, index)}
-            </span>
-          </div>
-        );
-      })}
+      <div class={`admin-visitor-chart admin-visitor-chart--${period}`}>
+        {series.map((item) => {
+          const height =
+            item.views === 0
+              ? 0
+              : Math.max(8, Math.round((item.views / maximum) * 100));
+          return (
+            <div
+              class="admin-visitor-chart__item"
+              key={item.date}
+              title={messages.admin.dailyViews(
+                formatChartDate(item.date),
+                item.views,
+              )}
+            >
+              <span class="admin-visitor-chart__track" aria-hidden="true">
+                <span
+                  class={item.views === 0 ? 'is-zero' : undefined}
+                  style={{ height: `${height}%` }}
+                />
+              </span>
+              {period === 7 ? (
+                <span class="admin-visitor-chart__label">
+                  {formatChartDate(item.date)}
+                </span>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      {period === 30 ? <ChartAxis series={series} /> : null}
     </div>
   );
 }
 
-function chartLabel(period: Period, index: number) {
-  if (period === 7) return `D${index + 1}`;
-  return index === 0 || (index + 1) % 5 === 0 ? `${index + 1}` : '';
+function ChartAxis({ series }: { series: readonly DailyPageViews[] }) {
+  const middle = series[Math.floor(series.length / 2)];
+  return (
+    <div class="admin-visitor-chart-axis" aria-hidden="true">
+      <span>{formatChartDate(series[0]?.date ?? '')}</span>
+      <span>{formatChartDate(middle?.date ?? '')}</span>
+      <span>{formatChartDate(series.at(-1)?.date ?? '')}</span>
+    </div>
+  );
+}
+
+function formatChartDate(date: string) {
+  const [, month, day] = date.split('-');
+  if (!month || !day) return '';
+  return `${Number(month)}/${Number(day)}`;
 }
 
 function formatNumber(value: number) {

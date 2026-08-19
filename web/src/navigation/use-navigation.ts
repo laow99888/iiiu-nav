@@ -16,14 +16,22 @@ export function useNavigation(scope: 'all' | 'public' = 'all') {
 
   useEffect(() => {
     const controller = new AbortController();
-    setState({ status: 'loading', snapshot: null });
+    setState((current) =>
+      current.status === 'ready'
+        ? current
+        : { status: 'loading', snapshot: null },
+    );
     fetchNavigation(controller.signal, scope)
       .then((snapshot) => setState({ status: 'ready', snapshot }))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') {
           return;
         }
-        setState({ status: 'error', snapshot: null });
+        setState((current) =>
+          current.status === 'ready'
+            ? current
+            : { status: 'error', snapshot: null },
+        );
       });
     return () => controller.abort();
   }, [revision, scope]);

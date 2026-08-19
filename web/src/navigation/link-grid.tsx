@@ -65,13 +65,7 @@ export function LinkGrid({
   status = 'ready',
 }: LinkGridProps) {
   if (status === 'loading') {
-    return (
-      <EmptyState
-        state="loading"
-        title={messages.navigation.loadingTitle}
-        description={messages.navigation.loadingDescription}
-      />
-    );
+    return <LinkGridSkeleton />;
   }
 
   if (status === 'error') {
@@ -123,6 +117,32 @@ export function LinkGrid({
           link={link}
           onEdit={onEdit ? () => onEdit(link) : undefined}
         />
+      ))}
+    </section>
+  );
+}
+
+function LinkGridSkeleton() {
+  return (
+    <section
+      class="link-grid link-grid--skeleton"
+      role="status"
+      aria-busy="true"
+      aria-label={messages.navigation.loadingTitle}
+    >
+      <span class="sr-only">{messages.navigation.loadingDescription}</span>
+      {Array.from({ length: 6 }, (_, index) => (
+        <div
+          class="link-card link-card--skeleton"
+          key={index}
+          aria-hidden="true"
+        >
+          <span class="ui-skeleton link-card-skeleton__logo" />
+          <span class="link-card-skeleton__copy">
+            <span class="ui-skeleton link-card-skeleton__name" />
+            <span class="ui-skeleton link-card-skeleton__description" />
+          </span>
+        </div>
       ))}
     </section>
   );

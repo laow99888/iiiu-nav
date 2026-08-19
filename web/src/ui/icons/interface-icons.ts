@@ -1,6 +1,7 @@
 export {
   Archive,
   ArrowDown,
+  ArrowLeft,
   ArrowUp,
   ArrowUpRight,
   Check,

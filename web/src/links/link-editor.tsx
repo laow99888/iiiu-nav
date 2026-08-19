@@ -7,6 +7,7 @@ import { RefreshCw } from '../ui/icons/interface-icons';
 import { Button, Drawer, FileInput, TextField } from '../ui/primitives';
 import {
   createLink,
+  isMetadataTargetBlocked,
   recognizeLink,
   updateLink,
   uploadLogo,
@@ -20,6 +21,7 @@ type Props = {
   categoryID: string;
   link?: NavigationLink | null;
   onClose: () => void;
+  onDeleted?: () => void;
   onSaved: () => void;
   open: boolean;
 };
@@ -29,6 +31,7 @@ export function LinkEditor({
   categoryID,
   link = null,
   onClose,
+  onDeleted,
   onSaved,
   open,
 }: Props) {
@@ -44,9 +47,9 @@ export function LinkEditor({
   const [saving, setSaving] = useState(false);
   const [recognizing, setRecognizing] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<'save' | 'recognize' | 'upload' | null>(
-    null,
-  );
+  const [error, setError] = useState<
+    'save' | 'recognize' | 'recognize-target' | 'upload' | null
+  >(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const validURL = isSupportedURL(normalizeLinkURL(url));
   const valid =
@@ -68,9 +71,11 @@ export function LinkEditor({
       setIconSource(result.iconSource);
       setIconValue(result.iconValue);
       if (result.iconSource === 'generated') setLogoText(result.iconValue);
-    } catch {
+    } catch (cause) {
       setName((current) => current || fallbackName(normalized));
-      setError('recognize');
+      setError(
+        isMetadataTargetBlocked(cause) ? 'recognize-target' : 'recognize',
+      );
     } finally {
       setRecognizing(false);
     }
@@ -241,6 +246,11 @@ export function LinkEditor({
               {messages.links.recognitionFailed}
             </p>
           ) : null}
+          {error === 'recognize-target' ? (
+            <p class="link-form__error" role="alert">
+              {messages.links.recognitionTargetBlocked}
+            </p>
+          ) : null}
           {error === 'save' ? (
             <p class="link-form__error" role="alert">
               {messages.links.saveFailed}
@@ -282,7 +292,7 @@ export function LinkEditor({
       <LinkDeleteDialog
         link={confirmDelete ? link : null}
         onClose={() => setConfirmDelete(false)}
-        onDeleted={onSaved}
+        onDeleted={onDeleted ?? onSaved}
       />
     </>
   );

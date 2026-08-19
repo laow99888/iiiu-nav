@@ -44,6 +44,7 @@ func TestOpenCreatesConfiguredSchema(t *testing.T) {
 	wantTables := map[string]bool{
 		"admin":             false,
 		"categories":        false,
+		"daily_page_views":  false,
 		"links":             false,
 		"schema_migrations": false,
 		"sessions":          false,

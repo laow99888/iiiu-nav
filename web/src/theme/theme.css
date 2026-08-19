@@ -1,6 +1,6 @@
 .theme-switcher {
   display: inline-flex;
-  height: 34px;
+  height: 32px;
   align-items: center;
   gap: 2px;
   padding: 2px;
@@ -11,8 +11,8 @@
 
 .theme-switcher__button {
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   place-items: center;
   border: 0;
@@ -33,7 +33,7 @@
 
 .theme-switcher__button[aria-pressed='true'] {
   color: var(--color-accent);
-  background: var(--color-accent-soft);
+  background: color-mix(in srgb, var(--color-accent-soft) 72%, transparent);
 }
 
 .theme-switcher__button:focus-visible {
@@ -42,6 +42,7 @@
 }
 
 .theme-switcher__button svg {
+  display: block;
   width: 15px;
   height: 15px;
   stroke-width: 2;

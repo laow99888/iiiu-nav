@@ -70,6 +70,7 @@ Compose 默认：
 
 - 只发布到 `127.0.0.1:${IIU_NAV_PORT:-8080}`；
 - 使用 `IIU_NAV_DATA_VOLUME` 指定的命名卷，默认是 `iiiu-nav-data`；
+- 使用 `IIU_NAV_TIMEZONE` 归属每日 PV，默认是 `Asia/Shanghai`；
 - 根文件系统只读，只有 `/data` 和受限 `/tmp` 可写；
 - 丢弃 Linux capabilities 并启用 `no-new-privileges`；
 - 异常退出自动重启。

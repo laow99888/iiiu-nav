@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/preact';
 import userEvent from '@testing-library/user-event';
-import { Search } from 'lucide-preact';
+import { ChevronDown, Search } from 'lucide-preact';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Button } from './button';
@@ -28,6 +28,19 @@ describe('基础控件', () => {
       'true',
     );
     expect(screen.getByRole('button', { name: '删除' })).toBeDisabled();
+  });
+
+  it('按钮文字和内嵌符号共享内容对齐盒', () => {
+    render(
+      <Button>
+        Google
+        <ChevronDown aria-hidden="true" />
+      </Button>,
+    );
+
+    const content = screen.getByText('Google');
+    expect(content).toHaveClass('ui-button__content');
+    expect(content.querySelector('svg')).toBeInTheDocument();
   });
 
   it('字段关联说明和错误，并保留禁用状态', async () => {

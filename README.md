@@ -41,7 +41,7 @@ npm run dev:api
 npm run dev:web
 ```
 
-打开 `http://127.0.0.1:5173`。默认数据目录是 `./data`；可通过 `IIU_NAV_DATA_DIR` 指定其他目录，API 监听地址可通过 `IIU_NAV_ADDR` 修改。
+打开 `http://127.0.0.1:5173`。默认数据目录是 `./data`；可通过 `IIU_NAV_DATA_DIR` 指定其他目录，API 监听地址可通过 `IIU_NAV_ADDR` 修改。每日 PV 按 `IIU_NAV_TIMEZONE` 归属自然日，默认使用 `Asia/Shanghai`。
 
 ## 构建与检查
 

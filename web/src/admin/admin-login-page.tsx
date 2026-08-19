@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 
 import { AuthAPIError, login } from '../auth/auth-api';
 import { messages } from '../i18n/messages';
-import { Compass, LoaderCircle, Lock } from '../ui/icons/interface-icons';
+import { ArrowLeft, Lock } from '../ui/icons/interface-icons';
 import { Button, TextField } from '../ui/primitives';
 import { SiteIdentity } from '../navigation/site-identity';
 import type { SiteSettings } from '../navigation/types';
@@ -40,48 +40,47 @@ export function AdminLoginPage({ loading = false, site }: Props) {
   return (
     <main class="admin-login-shell">
       <section class="admin-login-card" aria-labelledby="admin-login-title">
-        <SiteIdentity name={site?.name ?? 'iiiu-nav'} logoUrl={site?.logoUrl} />
-        <div class="admin-login-card__intro">
-          <span class="admin-login-card__icon" aria-hidden="true">
-            {loading ? (
-              <LoaderCircle class="ui-button__spinner" />
-            ) : (
-              <Compass />
-            )}
-          </span>
-          <p>{messages.admin.eyebrow}</p>
-          <h1 id="admin-login-title">{messages.admin.loginTitle}</h1>
-          <span>{messages.admin.loginDescription}</span>
-        </div>
-        <form
-          class="admin-login-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void submit();
-          }}
-        >
-          <TextField
-            autoFocus
-            required
-            type="password"
-            autoComplete="current-password"
-            label={messages.auth.password}
-            value={password}
-            disabled={loading || submitting}
-            error={error || undefined}
-            onInput={(event) => setPassword(event.currentTarget.value)}
+        <div class="admin-login-card__body">
+          <SiteIdentity
+            name={site?.name ?? 'iiiu-nav'}
+            logoUrl={site?.logoUrl}
           />
-          <Button
-            type="submit"
-            variant="primary"
-            icon={Lock}
-            loading={submitting || loading}
-            disabled={!password || loading}
+          <div class="admin-login-card__intro">
+            <p>{messages.admin.eyebrow}</p>
+            <h1 id="admin-login-title">{messages.admin.loginTitle}</h1>
+            <span>{messages.admin.loginDescription}</span>
+          </div>
+          <form
+            class="admin-login-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submit();
+            }}
           >
-            {messages.auth.login}
-          </Button>
-        </form>
+            <TextField
+              autoFocus
+              required
+              type="password"
+              autoComplete="current-password"
+              label={messages.auth.password}
+              value={password}
+              disabled={loading || submitting}
+              error={error || undefined}
+              onInput={(event) => setPassword(event.currentTarget.value)}
+            />
+            <Button
+              type="submit"
+              variant="primary"
+              icon={Lock}
+              loading={submitting || loading}
+              disabled={!password || loading}
+            >
+              {messages.auth.login}
+            </Button>
+          </form>
+        </div>
         <a class="admin-login-card__back" href="/">
+          <ArrowLeft aria-hidden="true" />
           {messages.admin.backToPublic}
         </a>
       </section>

@@ -143,11 +143,14 @@ func makeSchemaOneDatabase(t *testing.T, ctx context.Context, path string) {
 		t.Fatalf("close current database: %v", err)
 	}
 	database := openRawDatabase(t, path)
+	if _, err := database.ExecContext(ctx, `DROP TABLE daily_page_views`); err != nil {
+		t.Fatalf("remove v3 table: %v", err)
+	}
 	if _, err := database.ExecContext(ctx, `DROP INDEX links_url_idx`); err != nil {
 		t.Fatalf("remove v2 index: %v", err)
 	}
-	if _, err := database.ExecContext(ctx, `DELETE FROM schema_migrations WHERE version = 2`); err != nil {
-		t.Fatalf("remove v2 migration record: %v", err)
+	if _, err := database.ExecContext(ctx, `DELETE FROM schema_migrations WHERE version >= 2`); err != nil {
+		t.Fatalf("remove later migration records: %v", err)
 	}
 	if err := database.Close(); err != nil {
 		t.Fatalf("close schema-one database: %v", err)

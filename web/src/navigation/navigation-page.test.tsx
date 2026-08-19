@@ -57,6 +57,18 @@ describe('导航页面', () => {
     expect(screen.getByText('0 个链接')).toBeInTheDocument();
   });
 
+  it('加载导航时展示保持卡片几何的骨架状态', () => {
+    const { container } = render(
+      <NavigationPage categories={[]} status="loading" />,
+    );
+
+    expect(
+      screen.getByRole('status', { name: '正在载入导航' }),
+    ).toHaveAttribute('aria-busy', 'true');
+    expect(container.querySelectorAll('.link-card--skeleton')).toHaveLength(6);
+    expect(screen.queryByText('还没有导航内容')).not.toBeInTheDocument();
+  });
+
   it('主题选择立即应用并写入浏览器存储', async () => {
     const user = userEvent.setup();
     render(<NavigationPage categories={navigationFixtures} />);

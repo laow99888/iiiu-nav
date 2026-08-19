@@ -2,12 +2,9 @@ import { useEffect, useState } from 'preact/hooks';
 
 import { AuthenticationControls } from '../auth/authentication-controls';
 import { BackupDrawer } from '../backups/backup-drawer';
-import { CategoryManager } from '../categories/category-manager';
+import type { CategoryManagerAction } from '../categories/category-manager';
 import { BookmarkExportDrawer } from '../imports/bookmark-export';
 import { BookmarkImportDrawer } from '../imports/bookmark-import';
-import { LinkEditor } from '../links/link-editor';
-import { LinkDeleteDialog } from '../links/link-delete-dialog';
-import { LinkOrderManager } from '../links/link-order-manager';
 import { messages } from '../i18n/messages';
 import { SearchEngineSettings } from '../search/search-engine-settings';
 import { SiteSettingsDrawer } from '../settings/site-settings';
@@ -24,6 +21,11 @@ import {
 } from '../navigation/types';
 import type { SearchEngine } from '../search/search-engines';
 import { AdminMobileNavigation, AdminSidebar } from './admin-navigation';
+import {
+  AdminContentDialogs,
+  type CategoryManagerState,
+  type LinkEditorState,
+} from './admin-content-dialogs';
 import { AdminSectionContent } from './admin-section-content';
 import { adminSectionTitle, type AdminSection } from './admin-section';
 
@@ -51,12 +53,9 @@ function AdminPageContent({
   site,
 }: Props) {
   const [section, setSection] = useState<AdminSection>('dashboard');
-  const [activeCategoryID, setActiveCategoryID] = useState('');
-  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
-  const [linkEditor, setLinkEditor] = useState<{
-    categoryID: string;
-    link: NavigationLink | null;
-  } | null>(null);
+  const [categoryManager, setCategoryManager] =
+    useState<CategoryManagerState>(null);
+  const [linkEditor, setLinkEditor] = useState<LinkEditorState>(null);
   const [deleteLink, setDeleteLink] = useState<NavigationLink | null>(null);
   const [linkOrderOpen, setLinkOrderOpen] = useState(false);
   const [siteSettingsOpen, setSiteSettingsOpen] = useState(false);
@@ -66,8 +65,6 @@ function AdminPageContent({
   const [backupsOpen, setBackupsOpen] = useState(false);
   const { mode, setMode } = useThemeMode();
   const resolvedSite = site ?? defaultSiteSettings;
-  const activeCategory =
-    categories.find((category) => category.id === activeCategoryID) ?? null;
   const totalLinks = categories.reduce(
     (sum, category) => sum + category.links.length,
     0,
@@ -78,8 +75,14 @@ function AdminPageContent({
   }, [resolvedSite.name]);
 
   const openNewLink = () => {
-    const category = activeCategory ?? categories[0];
+    const category = categories[0];
     if (category) setLinkEditor({ categoryID: category.id, link: null });
+  };
+  const openCategoryManager = (action: CategoryManagerAction | null = null) => {
+    setCategoryManager(action ?? { type: 'list' });
+  };
+  const closeCategoryManager = () => {
+    setCategoryManager(null);
   };
   const editLink = (link: NavigationLink) => {
     const category = categories.find((item) =>
@@ -128,7 +131,7 @@ function AdminPageContent({
                 <Button
                   icon={Plus}
                   variant="primary"
-                  onClick={() => setCategoryManagerOpen(true)}
+                  onClick={() => openCategoryManager({ type: 'create' })}
                 >
                   {messages.categories.add}
                 </Button>
@@ -148,7 +151,7 @@ function AdminPageContent({
                     disabled={categories.length === 0}
                     onClick={() => setLinkOrderOpen(true)}
                   >
-                    {messages.links.manage}
+                    {messages.links.reorder}
                   </Button>
                 </>
               ) : null}
@@ -157,16 +160,25 @@ function AdminPageContent({
 
           <AdminSectionContent
             categories={categories}
-            onCategoryChange={setActiveCategoryID}
+            onCreateCategory={() => openCategoryManager({ type: 'create' })}
+            onDeleteCategory={(category) =>
+              openCategoryManager({ type: 'delete', categoryID: category.id })
+            }
             onDeleteLink={setDeleteLink}
+            onEditCategory={(category) =>
+              openCategoryManager({ type: 'edit', categoryID: category.id })
+            }
             onEditLink={editLink}
             onOpenBackups={() => setBackupsOpen(true)}
-            onOpenCategories={() => setCategoryManagerOpen(true)}
+            onOpenCategories={() => openCategoryManager()}
             onOpenExport={() => setExportOpen(true)}
             onOpenImport={() => setImportOpen(true)}
             onOpenSearchSettings={() => setSearchSettingsOpen(true)}
             onOpenSiteSettings={() => setSiteSettingsOpen(true)}
+            onCreateLink={openNewLink}
+            searchEngines={searchEngines}
             section={section}
+            site={resolvedSite}
           />
         </div>
       </main>
@@ -206,41 +218,17 @@ function AdminPageContent({
           onSessionChanged();
         }}
       />
-      <CategoryManager
-        open={categoryManagerOpen}
+      <AdminContentDialogs
         categories={categories}
-        onClose={() => setCategoryManagerOpen(false)}
-        onSaved={onRetry}
-      />
-      <LinkEditor
-        key={`${linkEditor?.link?.id ?? 'new'}-${linkEditor?.categoryID ?? ''}`}
-        open={linkEditor !== null}
-        categories={categories}
-        categoryID={linkEditor?.categoryID ?? ''}
-        link={linkEditor?.link}
-        onClose={() => setLinkEditor(null)}
-        onSaved={() => {
-          setLinkEditor(null);
-          onRetry();
-        }}
-      />
-      <LinkDeleteDialog
-        link={deleteLink}
-        onClose={() => setDeleteLink(null)}
-        onDeleted={() => {
-          setDeleteLink(null);
-          onRetry();
-        }}
-      />
-      <LinkOrderManager
-        open={linkOrderOpen}
-        categories={categories}
-        initialCategoryID={activeCategory?.id ?? categories[0]?.id ?? ''}
-        onClose={() => setLinkOrderOpen(false)}
-        onSaved={() => {
-          setLinkOrderOpen(false);
-          onRetry();
-        }}
+        categoryManager={categoryManager}
+        deleteLink={deleteLink}
+        linkEditor={linkEditor}
+        linkOrderOpen={linkOrderOpen}
+        onCloseCategoryManager={closeCategoryManager}
+        onCloseDeleteLink={() => setDeleteLink(null)}
+        onCloseLinkEditor={() => setLinkEditor(null)}
+        onCloseLinkOrder={() => setLinkOrderOpen(false)}
+        onRefresh={onRetry}
       />
     </div>
   );

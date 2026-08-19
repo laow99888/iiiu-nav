@@ -1,10 +1,12 @@
 import { NavigationPage } from './navigation/navigation-page';
 import { useNavigation } from './navigation/use-navigation';
 import { AdminLoginPage } from './admin/admin-login-page';
+import { AdminLoadingPage } from './admin/admin-loading-page';
 import { AdminPage } from './admin/admin-page';
 
 export function App() {
   const adminRoute = window.location.pathname.startsWith('/admin');
+  const adminLoginRoute = window.location.pathname === '/admin/login';
   const navigation = useNavigation(adminRoute ? 'all' : 'public');
   if (adminRoute && navigation.status === 'ready') {
     if (!navigation.snapshot?.administrator) {
@@ -21,6 +23,9 @@ export function App() {
     );
   }
   if (adminRoute) {
+    if (navigation.status === 'loading' && !adminLoginRoute) {
+      return <AdminLoadingPage />;
+    }
     return (
       <AdminLoginPage
         site={undefined}

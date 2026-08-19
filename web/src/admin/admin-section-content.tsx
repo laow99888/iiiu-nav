@@ -1,21 +1,21 @@
-import { messages } from '../i18n/messages';
-import type { NavigationCategory, NavigationLink } from '../navigation/types';
-import {
-  Archive,
-  FileDown,
-  FileUp,
-  Settings,
-  SlidersHorizontal,
-} from '../ui/icons/interface-icons';
-import { Button } from '../ui/primitives';
+import type {
+  NavigationCategory,
+  NavigationLink,
+  SiteSettings,
+} from '../navigation/types';
+import type { SearchEngine } from '../search/search-engines';
+import { AdminCategoryTable } from './admin-category-table';
 import { AdminDashboard } from './admin-dashboard';
 import { AdminLinkTable } from './admin-link-table';
 import type { AdminSection } from './admin-section';
+import { AdminDataWorkspace, AdminSettingsWorkspace } from './admin-workspaces';
 
 type Props = {
   categories: readonly NavigationCategory[];
-  onCategoryChange: (id: string) => void;
+  onCreateCategory: () => void;
+  onDeleteCategory: (category: NavigationCategory) => void;
   onDeleteLink: (link: NavigationLink) => void;
+  onEditCategory: (category: NavigationCategory) => void;
   onEditLink: (link: NavigationLink) => void;
   onOpenBackups: () => void;
   onOpenCategories: () => void;
@@ -23,14 +23,19 @@ type Props = {
   onOpenImport: () => void;
   onOpenSearchSettings: () => void;
   onOpenSiteSettings: () => void;
+  onCreateLink: () => void;
+  searchEngines: readonly SearchEngine[];
   section: AdminSection;
+  site: SiteSettings;
 };
 
 export function AdminSectionContent(props: Props) {
   const {
     categories,
-    onCategoryChange,
+    onCreateCategory,
+    onDeleteCategory,
     onDeleteLink,
+    onEditCategory,
     onEditLink,
     onOpenBackups,
     onOpenCategories,
@@ -38,7 +43,10 @@ export function AdminSectionContent(props: Props) {
     onOpenImport,
     onOpenSearchSettings,
     onOpenSiteSettings,
+    onCreateLink,
+    searchEngines,
     section,
+    site,
   } = props;
 
   if (section === 'dashboard') {
@@ -47,34 +55,13 @@ export function AdminSectionContent(props: Props) {
 
   if (section === 'categories') {
     return (
-      <section class="admin-panel">
-        <div class="admin-panel__header">
-          <div>
-            <h2>{messages.admin.categoryPanelTitle}</h2>
-            <p>{messages.categories.manageDescription}</p>
-          </div>
-          <Button icon={Settings} onClick={onOpenCategories}>
-            {messages.categories.manage}
-          </Button>
-        </div>
-        <div class="admin-category-list">
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              class="admin-category-row"
-              onClick={() => {
-                onCategoryChange(category.id);
-                onOpenCategories();
-              }}
-            >
-              <strong>{category.name}</strong>
-              <span>
-                {category.links.length} {messages.categories.links}
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
+      <AdminCategoryTable
+        categories={categories}
+        onCreate={onCreateCategory}
+        onDelete={onDeleteCategory}
+        onEdit={onEditCategory}
+        onOpenOrder={onOpenCategories}
+      />
     );
   }
 
@@ -82,6 +69,7 @@ export function AdminSectionContent(props: Props) {
     return (
       <AdminLinkTable
         categories={categories}
+        onCreate={onCreateLink}
         onDelete={onDeleteLink}
         onEdit={onEditLink}
       />
@@ -90,71 +78,20 @@ export function AdminSectionContent(props: Props) {
 
   if (section === 'data') {
     return (
-      <section class="admin-tool-grid">
-        <AdminTool
-          icon={FileUp}
-          title={messages.imports.menu}
-          description={messages.imports.description}
-          action={messages.imports.menu}
-          onClick={onOpenImport}
-        />
-        <AdminTool
-          icon={FileDown}
-          title={messages.exports.menu}
-          description={messages.exports.description}
-          action={messages.exports.menu}
-          onClick={onOpenExport}
-        />
-        <AdminTool
-          icon={Archive}
-          title={messages.backups.menu}
-          description={messages.backups.description}
-          action={messages.backups.menu}
-          onClick={onOpenBackups}
-        />
-      </section>
+      <AdminDataWorkspace
+        onOpenBackups={onOpenBackups}
+        onOpenExport={onOpenExport}
+        onOpenImport={onOpenImport}
+      />
     );
   }
 
   return (
-    <section class="admin-tool-grid">
-      <AdminTool
-        icon={SlidersHorizontal}
-        title={messages.settings.title}
-        description={messages.settings.savedDescription}
-        action={messages.settings.menu}
-        onClick={onOpenSiteSettings}
-      />
-      <AdminTool
-        icon={Settings}
-        title={messages.search.settingsTitle}
-        description={messages.search.settingsDescription}
-        action={messages.search.configure}
-        onClick={onOpenSearchSettings}
-      />
-    </section>
-  );
-}
-
-function AdminTool({
-  action,
-  description,
-  icon: Icon,
-  onClick,
-  title,
-}: {
-  action: string;
-  description: string;
-  icon: typeof Archive;
-  onClick: () => void;
-  title: string;
-}) {
-  return (
-    <article class="admin-tool">
-      <Icon aria-hidden="true" />
-      <h2>{title}</h2>
-      <p>{description}</p>
-      <Button onClick={onClick}>{action}</Button>
-    </article>
+    <AdminSettingsWorkspace
+      engines={searchEngines}
+      site={site}
+      onOpenSearchSettings={onOpenSearchSettings}
+      onOpenSiteSettings={onOpenSiteSettings}
+    />
   );
 }

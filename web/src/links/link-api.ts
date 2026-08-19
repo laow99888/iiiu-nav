@@ -57,11 +57,20 @@ export async function recognizeLink(url: string): Promise<RecognitionResult> {
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify({ url: normalizeLinkURL(url) }),
   });
-  if (!response.ok) throw new Error(`Recognition failed: ${response.status}`);
+  if (!response.ok) {
+    const code = await readErrorCode(response);
+    throw new Error(code ?? `Recognition failed: ${response.status}`);
+  }
   const value: unknown = await response.json();
   if (!isRecognitionResult(value))
     throw new Error('Recognition response is invalid');
   return value;
+}
+
+export function isMetadataTargetBlocked(error: unknown) {
+  return (
+    error instanceof Error && error.message === 'metadata_target_not_public'
+  );
 }
 
 export async function uploadLogo(file: File): Promise<string> {
@@ -132,4 +141,15 @@ function isRecognitionResult(value: unknown): value is RecognitionResult {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+async function readErrorCode(response: Response) {
+  try {
+    const value: unknown = await response.json();
+    return isRecord(value) && typeof value.error === 'string'
+      ? value.error
+      : null;
+  } catch {
+    return null;
+  }
 }

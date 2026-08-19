@@ -4,34 +4,69 @@ import { messages } from '../i18n/messages';
 import type { NavigationCategory } from '../navigation/types';
 import { CategoryIcon } from '../ui/icons/category-icons';
 import { Lock, Plus, Settings, Trash2 } from '../ui/icons/interface-icons';
-import { Button, Dialog, Drawer, Tooltip, useToast } from '../ui/primitives';
+import { Button, Drawer, Tooltip, useToast } from '../ui/primitives';
 import { SortableList } from '../ui/sortable';
-import { deleteCategory, reorderCategories } from './category-api';
+import { reorderCategories } from './category-api';
+import { CategoryDeleteDialog } from './category-delete-dialog';
 import { CategoryForm } from './category-form';
 
 type Props = {
   categories: readonly NavigationCategory[];
+  initialAction?: CategoryManagerAction | null;
   onClose: () => void;
   onSaved: () => void;
   open: boolean;
 };
+export type CategoryManagerAction =
+  | { type: 'create' }
+  | { type: 'edit'; categoryID: string }
+  | { type: 'delete'; categoryID: string };
 type View =
   | { type: 'list' }
   | { type: 'create' }
   | { type: 'edit'; category: NavigationCategory };
 
-export function CategoryManager({ categories, onClose, onSaved, open }: Props) {
-  const [view, setView] = useState<View>({ type: 'list' });
+export function CategoryManager({
+  categories,
+  initialAction,
+  onClose,
+  onSaved,
+  open,
+}: Props) {
+  const [view, setView] = useState<View>(() =>
+    initialView(categories, initialAction),
+  );
   const [draft, setDraft] = useState<NavigationCategory[]>([...categories]);
-  const [deleting, setDeleting] = useState<NavigationCategory | null>(null);
+  const [deleting, setDeleting] = useState<NavigationCategory | null>(() =>
+    initialDeletingCategory(categories, initialAction),
+  );
   const [savingOrder, setSavingOrder] = useState(false);
   const toast = useToast();
   useEffect(() => {
     if (open) {
       setDraft([...categories]);
-      setView({ type: 'list' });
+      const categoryID =
+        initialAction && 'categoryID' in initialAction
+          ? initialAction.categoryID
+          : '';
+      const category = categoryID
+        ? categories.find((item) => item.id === categoryID)
+        : undefined;
+      if (initialAction?.type === 'create') {
+        setView({ type: 'create' });
+        setDeleting(null);
+      } else if (initialAction?.type === 'edit' && category) {
+        setView({ type: 'edit', category });
+        setDeleting(null);
+      } else if (initialAction?.type === 'delete' && category) {
+        setView({ type: 'list' });
+        setDeleting(category);
+      } else {
+        setView({ type: 'list' });
+        setDeleting(null);
+      }
     }
-  }, [categories, open]);
+  }, [categories, initialAction, open]);
   const close = () => {
     if (!savingOrder) {
       setView({ type: 'list' });
@@ -173,114 +208,22 @@ export function CategoryManager({ categories, onClose, onSaved, open }: Props) {
   );
 }
 
-type DeleteProps = {
-  categories: readonly NavigationCategory[];
-  category: NavigationCategory | null;
-  onClose: () => void;
-  onDeleted: () => void;
-};
+function initialView(
+  categories: readonly NavigationCategory[],
+  action?: CategoryManagerAction | null,
+): View {
+  if (action?.type === 'create') return { type: 'create' };
+  if (action?.type === 'edit') {
+    const category = categories.find((item) => item.id === action.categoryID);
+    if (category) return { type: 'edit', category };
+  }
+  return { type: 'list' };
+}
 
-function CategoryDeleteDialog({
-  categories,
-  category,
-  onClose,
-  onDeleted,
-}: DeleteProps) {
-  const targets = categories.filter((item) => item.id !== category?.id);
-  const hasLinks = (category?.links.length ?? 0) > 0;
-  const [mode, setMode] = useState<'move' | 'delete'>(
-    targets.length ? 'move' : 'delete',
-  );
-  const [targetID, setTargetID] = useState(targets[0]?.id ?? '');
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState(false);
-  useEffect(() => {
-    if (category) {
-      const nextTargets = categories.filter((item) => item.id !== category.id);
-      setMode(nextTargets.length ? 'move' : 'delete');
-      setTargetID(nextTargets[0]?.id ?? '');
-      setError(false);
-    }
-  }, [categories, category]);
-  if (!category) return null;
-  const confirm = async () => {
-    if (deleting || (mode === 'move' && !targetID)) return;
-    setDeleting(true);
-    setError(false);
-    try {
-      await deleteCategory(category.id, hasLinks ? mode : 'delete', targetID);
-      onDeleted();
-    } catch {
-      setError(true);
-    } finally {
-      setDeleting(false);
-    }
-  };
-  return (
-    <Dialog
-      open
-      title={messages.categories.deleteTitle(category.name)}
-      description={messages.categories.deleteDescription(category.links.length)}
-      onClose={deleting ? () => undefined : onClose}
-      footer={
-        <>
-          <Button disabled={deleting} onClick={onClose}>
-            {messages.categories.cancel}
-          </Button>
-          <Button
-            variant="danger"
-            loading={deleting}
-            disabled={mode === 'move' && !targetID}
-            onClick={() => void confirm()}
-          >
-            {messages.categories.confirmDelete}
-          </Button>
-        </>
-      }
-    >
-      <div class="category-delete">
-        {hasLinks ? (
-          <fieldset>
-            <legend>{messages.categories.linkHandling}</legend>
-            {targets.length > 0 ? (
-              <label>
-                <input
-                  type="radio"
-                  name="category-delete-mode"
-                  checked={mode === 'move'}
-                  onChange={() => setMode('move')}
-                />
-                <span>{messages.categories.moveLinks}</span>
-              </label>
-            ) : null}
-            {mode === 'move' ? (
-              <select
-                aria-label={messages.categories.moveTarget}
-                value={targetID}
-                onChange={(event) => setTargetID(event.currentTarget.value)}
-              >
-                {targets.map((target) => (
-                  <option key={target.id} value={target.id}>
-                    {target.name}
-                  </option>
-                ))}
-              </select>
-            ) : null}
-            <label>
-              <input
-                type="radio"
-                name="category-delete-mode"
-                checked={mode === 'delete'}
-                onChange={() => setMode('delete')}
-              />
-              <span>
-                {messages.categories.deleteLinks(category.links.length)}
-              </span>
-            </label>
-          </fieldset>
-        ) : null}
-        {error ? <p role="alert">{messages.categories.deleteFailed}</p> : null}
-      </div>
-    </Dialog>
-  );
+function initialDeletingCategory(
+  categories: readonly NavigationCategory[],
+  action?: CategoryManagerAction | null,
+) {
+  if (action?.type !== 'delete') return null;
+  return categories.find((item) => item.id === action.categoryID) ?? null;
 }

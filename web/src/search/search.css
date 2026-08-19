@@ -12,7 +12,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: 3px 3px 3px var(--space-3);
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid var(--color-input-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   transition:
@@ -21,11 +21,12 @@
 }
 
 .combined-search:focus-within .combined-search__bar {
-  border-color: var(--color-focus);
+  border-color: color-mix(in srgb, var(--color-focus) 72%, var(--color-border));
   box-shadow: var(--focus-ring);
 }
 
 .combined-search__icon {
+  display: block;
   width: 18px;
   height: 18px;
   color: var(--color-text-subtle);
@@ -79,7 +80,7 @@
   overflow-y: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: var(--color-surface-raised);
+  background: var(--color-popover);
   box-shadow: var(--shadow-overlay);
 }
 

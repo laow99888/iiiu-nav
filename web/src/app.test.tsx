@@ -48,7 +48,9 @@ describe('应用导航接入', () => {
     );
     render(<App />);
 
-    expect(screen.getByText('正在载入导航')).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: '正在载入导航' }),
+    ).toHaveAttribute('aria-busy', 'true');
     resolveResponse?.(
       new Response(JSON.stringify(navigationBody), { status: 200 }),
     );
