@@ -14,6 +14,16 @@ type ButtonProps = Omit<
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
 };
 
+type ButtonLinkProps = Omit<
+  JSX.AnchorHTMLAttributes<HTMLAnchorElement>,
+  'size'
+> & {
+  children?: ComponentChildren;
+  icon?: LucideIcon;
+  size?: 'small' | 'medium' | 'large';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+};
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   function Button(
     {
@@ -36,7 +46,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
         ref={ref}
         type={type}
-        class={`ui-button ui-button--${variant} ui-button--${size}${className ? ` ${className}` : ''}`}
+        class={buttonClass(variant, size, className)}
         disabled={isDisabled}
         aria-busy={loading || undefined}
       >
@@ -50,3 +60,32 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     );
   },
 );
+
+export const ButtonLink = forwardRef<HTMLAnchorElement, ButtonLinkProps>(
+  function ButtonLink(
+    {
+      children,
+      class: className,
+      icon: Icon,
+      size = 'medium',
+      variant = 'secondary',
+      ...props
+    },
+    ref,
+  ) {
+    return (
+      <a {...props} ref={ref} class={buttonClass(variant, size, className)}>
+        {Icon ? <Icon aria-hidden="true" /> : null}
+        {children ? <span class="ui-button__content">{children}</span> : null}
+      </a>
+    );
+  },
+);
+
+function buttonClass(
+  variant: NonNullable<ButtonProps['variant']>,
+  size: NonNullable<ButtonProps['size']>,
+  className: ButtonProps['class'],
+) {
+  return `ui-button ui-button--${variant} ui-button--${size}${className ? ` ${className}` : ''}`;
+}

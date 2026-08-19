@@ -1,4 +1,4 @@
-export { Button } from './button';
+export { Button, ButtonLink } from './button';
 export { Dialog } from './dialog';
 export { Drawer } from './drawer';
 export { EmptyState } from './empty-state';

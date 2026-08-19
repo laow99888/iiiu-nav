@@ -11,7 +11,7 @@ import {
   Settings,
   SlidersHorizontal,
 } from '../ui/icons/interface-icons';
-import { Button, Menu, Tooltip, useToast } from '../ui/primitives';
+import { Button, ButtonLink, Menu, Tooltip, useToast } from '../ui/primitives';
 import { logout } from './auth-api';
 import { LoginDialog } from './login-dialog';
 import { PasswordDialog } from './password-dialog';
@@ -149,21 +149,17 @@ export function AuthenticationControls({
         ) : loginHref ? (
           compact ? (
             <Tooltip content={messages.auth.login}>
-              <Button
+              <ButtonLink
                 variant="ghost"
                 icon={Lock}
                 aria-label={messages.auth.login}
-                onClick={() => window.location.assign(loginHref)}
+                href={loginHref}
               />
             </Tooltip>
           ) : (
-            <Button
-              variant="ghost"
-              icon={Lock}
-              onClick={() => window.location.assign(loginHref)}
-            >
+            <ButtonLink variant="ghost" icon={Lock} href={loginHref}>
               {messages.auth.login}
-            </Button>
+            </ButtonLink>
           )
         ) : compact ? (
           <Tooltip content={messages.auth.login}>

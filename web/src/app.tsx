@@ -42,7 +42,7 @@ export function App() {
       status={navigation.status}
       onRetry={navigation.retry}
       onSessionChanged={navigation.retry}
-      loginHref="/admin/login"
+      loginHref={navigation.snapshot?.administrator ? '/admin' : '/admin/login'}
     />
   );
 }

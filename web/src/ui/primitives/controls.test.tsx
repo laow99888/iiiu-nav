@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { ChevronDown, Search } from 'lucide-preact';
 import { describe, expect, it, vi } from 'vitest';
 
-import { Button } from './button';
+import { Button, ButtonLink } from './button';
 import { EmptyState } from './empty-state';
 import { TextField } from './field';
 import { FileInput } from './file-input';
@@ -41,6 +41,23 @@ describe('基础控件', () => {
     const content = screen.getByText('Google');
     expect(content).toHaveClass('ui-button__content');
     expect(content.querySelector('svg')).toBeInTheDocument();
+  });
+
+  it('链接按钮保留原生导航目标和按钮视觉层级', () => {
+    render(
+      <ButtonLink href="/admin" icon={Search} variant="ghost">
+        进入后台
+      </ButtonLink>,
+    );
+
+    expect(screen.getByRole('link', { name: '进入后台' })).toHaveAttribute(
+      'href',
+      '/admin',
+    );
+    expect(screen.getByRole('link', { name: '进入后台' })).toHaveClass(
+      'ui-button--ghost',
+      'ui-button--medium',
+    );
   });
 
   it('字段关联说明和错误，并保留禁用状态', async () => {

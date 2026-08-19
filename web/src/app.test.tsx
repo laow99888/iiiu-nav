@@ -58,6 +58,9 @@ describe('应用导航接入', () => {
     expect(
       await screen.findByRole('link', { name: /公开链接/ }),
     ).toBeInTheDocument();
+    for (const entry of screen.getAllByRole('link', { name: '管理员登录' })) {
+      expect(entry).toHaveAttribute('href', '/admin/login');
+    }
     expect(screen.queryByText('正在载入导航')).not.toBeInTheDocument();
   });
 
@@ -78,5 +81,28 @@ describe('应用导航接入', () => {
     expect(
       await screen.findByRole('link', { name: /公开链接/ }),
     ).toBeInTheDocument();
+  });
+
+  it('已登录时从公开首页直接进入后台而不经过登录页', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ ...navigationBody, administrator: true }),
+            { status: 200 },
+          ),
+        ),
+    );
+    render(<App />);
+
+    expect(
+      await screen.findByRole('link', { name: /公开链接/ }),
+    ).toBeInTheDocument();
+    for (const entry of screen.getAllByRole('link', { name: '管理员登录' })) {
+      expect(entry).toHaveAttribute('href', '/admin');
+    }
+    expect(screen.queryByText('管理员菜单')).not.toBeInTheDocument();
   });
 });
