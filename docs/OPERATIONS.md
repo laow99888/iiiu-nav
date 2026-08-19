@@ -50,11 +50,11 @@ cp .env.example .env
 
 密码必须包含至少 9 个字符且不超过 1024 字节。尾部换行会被忽略。Linux 上的 `root:65532 0640` 让 root 持有密码，同时允许容器内 UID `65532` 的非 root 进程完成首次读取；其他用户不可读。`secrets/`、`.env` 和 `/data` 已排除在 Git 与 Docker 构建上下文之外。
 
-### 2.2 构建并启动
+### 2.2 拉取并启动
 
 ```powershell
-docker compose build --build-arg VERSION=local
-docker compose up -d
+docker compose pull app
+docker compose up -d --wait app
 docker compose logs app
 ```
 
@@ -70,6 +70,7 @@ Invoke-RestMethod http://127.0.0.1:8080/api/health
 Compose 默认：
 
 - 只发布到 `127.0.0.1:${IIU_NAV_PORT:-8080}`；
+- 默认拉取 `ghcr.io/laow99888/iiiu-nav:stable`；将 `IIU_NAV_IMAGE_TAG` 设为明确的 `vMAJOR.MINOR.PATCH` 可固定版本；
 - 使用 `IIU_NAV_DATA_VOLUME` 指定的命名卷，默认是 `iiiu-nav-data`；
 - 使用 `IIU_NAV_TIMEZONE` 归属每日 PV，默认是 `Asia/Shanghai`；
 - 根文件系统只读，只有 `/data` 和受限 `/tmp` 可写；
@@ -157,15 +158,19 @@ docker compose up -d
 
 ## 7. 升级
 
-不要使用未固定的镜像标签直接覆盖生产。升级前记录旧镜像标签或 digest，并完成外部备份。
+后台“系统设置 -> 版本与更新”会检测 GitHub 上最新的稳定版本。检测不上传 IP 或站点数据；开发构建不访问 GitHub。应用容器没有 Docker 权限，因此 NAV-417 只提供版本发现和明确的手动命令，不会自行替换容器。
+
+`stable` 只有在显式拉取后才会进入本机。升级前记录当前版本和镜像 digest，并完成外部备份：
 
 1. 在管理界面创建并下载完整备份。
 2. 记录当前版本：`Invoke-RestMethod http://127.0.0.1:8080/api/health`。
-3. 将 `.env` 中 `IIU_NAV_VERSION` 改为明确版本。
-4. 构建或拉取新镜像。
-5. 执行 `docker compose up -d --build`。
+3. 记录当前镜像：`docker compose images app`；需要精确 digest 时执行 `docker image inspect ghcr.io/laow99888/iiiu-nav:stable --format '{{index .RepoDigests 0}}'`。
+4. 执行 `docker compose pull app`。
+5. 执行 `docker compose up -d --wait app`。
 6. 查看 `docker compose logs app`，确认应用版本和 schema 版本。
 7. 检查 `/healthz`、公开导航、管理员登录和私有分类。
+
+需要先审核再升级时，把 `.env` 中 `IIU_NAV_IMAGE_TAG` 改为后台显示的明确版本，例如 `v1.2.3`，然后执行第 4 至 7 步。不要在生产环境依赖 `IIU_NAV_VERSION`；它只用于从源码本地构建时写入版本号。
 
 启动会在监听 HTTP 前只读检查 schema。存在待执行迁移时，应用先在 `/data/backups` 创建完整迁移前备份，再把全部待执行迁移放进一个 SQLite 事务。备份或迁移失败会中止启动，不会提供流量；日志会给出失败迁移和保留的备份名。
 
@@ -179,17 +184,26 @@ docker compose up -d
 2. 继续使用支持当前 schema 的新版本登录。
 3. 在备份界面恢复升级前自动生成的备份；恢复成功后会退出登录。
 4. 停止新版本：`docker compose stop app`。
-5. 将 `.env` 的 `IIU_NAV_VERSION` 改回已记录的旧版本或 digest。
-6. 启动旧版本并检查健康状态、公开导航和管理员登录。
+5. 将 `.env` 的 `IIU_NAV_IMAGE_TAG` 改回已记录的旧版本标签，例如 `v1.2.2`。
+6. 执行 `docker compose pull app` 和 `docker compose up -d --wait app`，再检查健康状态、公开导航和管理员登录。
 
 如果新版本已无法启动，但数据卷仍可用，应先用同版本镜像恢复服务，再按上述步骤恢复迁移前备份。最后手段是复制整个卷后，在隔离环境中启动兼容版本并通过网页恢复；不要把备份 ZIP 手工解压覆盖在线 `/data`。
 
 ## 9. 多架构镜像
 
+正式发布由 GitHub Release 驱动。发布 `vMAJOR.MINOR.PATCH` 格式的非预发布版本后，GitHub Actions 会先运行完整检查与生产构建，再发布：
+
+- `ghcr.io/laow99888/iiiu-nav:vMAJOR.MINOR.PATCH`：不可变的版本标签；
+- `ghcr.io/laow99888/iiiu-nav:stable`：指向最新稳定版本；
+- 同一 manifest 下的 `linux/amd64` 与 `linux/arm64` 镜像；
+- GitHub Release 附件 `release-manifest.json`，记录版本、源码 revision、仓库、镜像 digest 和发布时间。
+
+首次发布包后，仓库所有者需要在 GitHub Packages 中确认该容器包为 Public，否则匿名服务器无法拉取。正式版本必须从 GitHub Release 发布，不要单独移动 `stable` 标签。
+
 本地构建当前平台：
 
 ```powershell
-docker build --build-arg VERSION=1.0.0 -t iiiu-nav:1.0.0 .
+docker build --build-arg VERSION=local --build-arg REVISION=local -t iiiu-nav:local .
 ```
 
 使用 Buildx 构建并推送 amd64/arm64 清单：
@@ -197,12 +211,13 @@ docker build --build-arg VERSION=1.0.0 -t iiiu-nav:1.0.0 .
 ```powershell
 docker buildx build `
   --platform linux/amd64,linux/arm64 `
-  --build-arg VERSION=1.0.0 `
-  -t registry.example.com/iiiu-nav:1.0.0 `
+  --build-arg VERSION=v1.0.0 `
+  --build-arg REVISION=local `
+  -t registry.example.com/iiiu-nav:v1.0.0 `
   --push .
 ```
 
-`VERSION` 会写入 `/api/health` 和 OCI 镜像标签，便于确认正在运行的版本。
+`VERSION` 会写入 `/api/health` 和 OCI 镜像标签，便于确认正在运行的版本。后台只把严格的 `vMAJOR.MINOR.PATCH` 识别为可比较的正式版本；`dev`、`local` 等本地构建会明确显示为开发版本且不请求 GitHub。
 
 ## 10. 浏览器兼容性
 

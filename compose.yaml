@@ -2,11 +2,12 @@ name: iiiu-nav
 
 services:
   app:
-    image: iiiu-nav:${IIU_NAV_VERSION:-local}
+    image: ghcr.io/laow99888/iiiu-nav:${IIU_NAV_IMAGE_TAG:-stable}
     build:
       context: .
       args:
         VERSION: ${IIU_NAV_VERSION:-local}
+        REVISION: ${IIU_NAV_REVISION:-local}
     restart: unless-stopped
     ports:
       - '127.0.0.1:${IIU_NAV_PORT:-8080}:8080'
@@ -26,6 +27,12 @@ services:
     security_opt:
       - no-new-privileges:true
     stop_grace_period: 15s
+    healthcheck:
+      test: ['CMD', '/iiiu-nav', 'healthcheck']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
 
 secrets:
   admin-password:

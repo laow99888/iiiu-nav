@@ -20,6 +20,7 @@ coverage/
 /bin/
 /iiiu-nav
 /iiiu-nav.exe
+/iiiu-nav.exe~
 
 # Test artifacts
 .go-tmp/

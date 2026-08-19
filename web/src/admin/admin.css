@@ -807,6 +807,46 @@
 .admin-workspace-row > .ui-button {
   min-width: 132px;
 }
+.admin-version__release {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  color: var(--admin-accent-strong);
+  background: var(--admin-accent-soft);
+  font-size: var(--font-size-xs);
+  text-decoration: none;
+}
+.admin-version__release:hover {
+  text-decoration: underline;
+}
+.admin-version__release svg {
+  width: 12px;
+  height: 12px;
+}
+.admin-version__manual {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.admin-version__manual strong {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.admin-version__manual code {
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 7px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  background: var(--color-surface-subtle);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
 
 .admin-loading-nav {
   display: grid;

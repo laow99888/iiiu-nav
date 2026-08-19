@@ -12,8 +12,8 @@
 New-Item -ItemType Directory -Force secrets | Out-Null
 [IO.File]::WriteAllText((Join-Path $PWD "secrets/admin-password"), "请替换为至少9个字符的初始密码", [Text.UTF8Encoding]::new($false))
 Copy-Item .env.example .env
-docker compose build
-docker compose up -d
+docker compose pull app
+docker compose up -d --wait app
 ```
 
 打开 `http://127.0.0.1:8080` 查看公开前台；管理员从 `/admin/login` 进入独立后台。Compose 默认只监听本机回环地址；公网部署应通过 HTTPS 反向代理访问。首次启动会读取密码文件并只保存 Argon2id 哈希，后续启动不会再读取该文件。
@@ -25,7 +25,7 @@ Invoke-WebRequest http://127.0.0.1:8080/healthz
 docker compose logs app
 ```
 
-数据保存在命名卷 `iiiu-nav-data`，不要在升级或重建容器时删除该卷。详细的权限、代理、备份、恢复和回滚步骤见[运维手册](docs/OPERATIONS.md)。
+默认拉取 `ghcr.io/laow99888/iiiu-nav:stable` 的 amd64/arm64 镜像；需要固定版本时，把 `.env` 的 `IIU_NAV_IMAGE_TAG` 改为明确的 `vMAJOR.MINOR.PATCH` 标签。数据保存在命名卷 `iiiu-nav-data`，不要在升级或重建容器时删除该卷。详细的权限、代理、备份、恢复和回滚步骤见[运维手册](docs/OPERATIONS.md)。
 
 ## 本地开发
 
@@ -51,7 +51,7 @@ npm run dev:web
 npm run check
 npm run build
 docker build --target go-test -t iiiu-nav:test .
-docker build --build-arg VERSION=local -t iiiu-nav:local .
+docker build --build-arg VERSION=local --build-arg REVISION=local -t iiiu-nav:local .
 ```
 
 生产构建将前端资源嵌入单个 Go 二进制。容器以非 root 用户运行，持久化内容都位于 `/data`。

@@ -66,6 +66,7 @@ type SettingsWorkspaceProps = {
   onOpenSearchSettings: () => void;
   onOpenSiteSettings: () => void;
   site: SiteSettings;
+  versionStatus: ComponentChildren;
 };
 
 export function AdminSettingsWorkspace({
@@ -73,6 +74,7 @@ export function AdminSettingsWorkspace({
   onOpenSearchSettings,
   onOpenSiteSettings,
   site,
+  versionStatus,
 }: SettingsWorkspaceProps) {
   const enabledEngines = engines.filter((engine) => engine.enabled);
   const engineSummary = enabledEngines.length
@@ -83,7 +85,7 @@ export function AdminSettingsWorkspace({
     <AdminWorkspace
       kicker={messages.admin.settingsWorkspaceKicker}
       title={messages.admin.settingsWorkspaceTitle}
-      count={messages.admin.settingCount(3)}
+      count={messages.admin.settingCount(4)}
     >
       <AdminWorkspaceRow
         icon={SlidersHorizontal}
@@ -126,6 +128,7 @@ export function AdminSettingsWorkspace({
         action={messages.admin.editIndexing}
         onClick={onOpenSiteSettings}
       />
+      {versionStatus}
     </AdminWorkspace>
   );
 }

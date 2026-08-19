@@ -23,10 +23,12 @@ func run(arguments []string, logger *slog.Logger) error {
 		return serve(logger)
 	case len(arguments) == 1 && arguments[0] == "serve":
 		return serve(logger)
+	case len(arguments) == 1 && arguments[0] == "healthcheck":
+		return healthcheck()
 	case len(arguments) == 2 && arguments[0] == "admin" && arguments[1] == "reset-password":
 		return resetAdminPassword(logger)
 	default:
-		return errors.New("usage: iiiu-nav [serve | admin reset-password]")
+		return errors.New("usage: iiiu-nav [serve | healthcheck | admin reset-password]")
 	}
 }
 

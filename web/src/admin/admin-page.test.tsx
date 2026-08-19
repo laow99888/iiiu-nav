@@ -242,6 +242,9 @@ describe('管理后台', () => {
     );
     const settings = screen.getByRole('region', { name: '站点配置' });
     expect(within(settings).getByText('我的导航')).toBeInTheDocument();
+    expect(
+      within(settings).getByRole('heading', { name: '版本与更新' }),
+    ).toBeInTheDocument();
     expect(within(settings).getByText('已启用 4 个')).toBeInTheDocument();
     expect(within(settings).getByText('禁止搜索引擎收录')).toBeInTheDocument();
     await user.click(

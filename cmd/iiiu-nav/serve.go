@@ -21,6 +21,7 @@ import (
 	"iiiu-nav/internal/restore"
 	"iiiu-nav/internal/server"
 	storage "iiiu-nav/internal/storage/sqlite"
+	"iiiu-nav/internal/updatecheck"
 	"iiiu-nav/internal/webui"
 )
 
@@ -60,6 +61,7 @@ func serve(logger *slog.Logger) error {
 	if err != nil {
 		return commandError("configure analytics", err)
 	}
+	updates := updatecheck.New(updatecheck.Config{CurrentVersion: version})
 
 	schemaVersion, err := data.store.SchemaVersion(startupContext)
 	if err != nil {
@@ -105,6 +107,7 @@ func serve(logger *slog.Logger) error {
 			Navigation:  data.store,
 			Settings:    data.store,
 			Analytics:   pageViews,
+			Updates:     updates,
 			Version:     version,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,

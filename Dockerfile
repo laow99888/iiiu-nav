@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 ARG VERSION=dev
+ARG REVISION=unknown
 
 FROM --platform=$BUILDPLATFORM node:24-alpine AS web-build
 
@@ -18,6 +19,7 @@ FROM --platform=$BUILDPLATFORM golang:1.26.6-alpine AS go-build
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION
+ARG REVISION
 
 WORKDIR /src
 
@@ -43,9 +45,12 @@ RUN CGO_ENABLED=0 go test ./cmd/... ./internal/...
 FROM gcr.io/distroless/static-debian12:nonroot
 
 ARG VERSION
+ARG REVISION
 
 LABEL org.opencontainers.image.title="iiiu-nav" \
       org.opencontainers.image.description="Lightweight single-user navigation" \
+      org.opencontainers.image.source="https://github.com/laow99888/iiiu-nav" \
+      org.opencontainers.image.revision=$REVISION \
       org.opencontainers.image.version=$VERSION
 
 COPY --from=go-build /out/iiiu-nav /iiiu-nav
@@ -54,5 +59,6 @@ COPY --from=go-build --chown=65532:65532 /out/data /data
 ENV IIU_NAV_DATA_DIR=/data
 EXPOSE 8080
 VOLUME ["/data"]
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=6 CMD ["/iiiu-nav", "healthcheck"]
 
 ENTRYPOINT ["/iiiu-nav"]

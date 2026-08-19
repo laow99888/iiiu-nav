@@ -33,6 +33,7 @@ type Config struct {
 	Navigation  NavigationReader
 	Settings    SettingsStore
 	Analytics   PageViewAnalytics
+	Updates     UpdateChecker
 	Version     string
 }
 
@@ -73,6 +74,9 @@ func New(config Config) http.Handler {
 	}
 	if config.Auth != nil && config.Analytics != nil {
 		registerAnalyticsRoutes(mux, config.Auth, config.Analytics)
+	}
+	if config.Auth != nil && config.Updates != nil {
+		registerUpdateRoutes(mux, config.Auth, config.Updates)
 	}
 	if config.Auth != nil && config.Categories != nil {
 		registerCategoryRoutes(mux, config.Auth, config.Categories, config.Links, config.Logos)

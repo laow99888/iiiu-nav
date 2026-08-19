@@ -4,6 +4,7 @@ import type {
   SiteSettings,
 } from '../navigation/types';
 import type { SearchEngine } from '../search/search-engines';
+import { VersionStatus } from '../updates/version-status';
 import { AdminCategoryTable } from './admin-category-table';
 import { AdminDashboard } from './admin-dashboard';
 import { AdminLinkTable } from './admin-link-table';
@@ -92,6 +93,7 @@ export function AdminSectionContent(props: Props) {
       site={site}
       onOpenSearchSettings={onOpenSearchSettings}
       onOpenSiteSettings={onOpenSiteSettings}
+      versionStatus={<VersionStatus />}
     />
   );
 }
