@@ -1,0 +1,35 @@
+name: iiiu-nav
+
+services:
+  app:
+    image: iiiu-nav:${IIU_NAV_VERSION:-local}
+    build:
+      context: .
+      args:
+        VERSION: ${IIU_NAV_VERSION:-local}
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${IIU_NAV_PORT:-8080}:8080'
+    environment:
+      ADMIN_PASSWORD_FILE: /run/secrets/admin-password
+      IIU_NAV_ADDR: :8080
+    secrets:
+      - admin-password
+    volumes:
+      - data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 15s
+
+secrets:
+  admin-password:
+    file: ./secrets/admin-password
+
+volumes:
+  data:
+    name: ${IIU_NAV_DATA_VOLUME:-iiiu-nav-data}

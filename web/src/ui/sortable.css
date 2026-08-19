@@ -1,0 +1,72 @@
+.ui-sortable {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.ui-sortable__item {
+  display: grid;
+  min-height: 48px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  transition:
+    opacity var(--motion-fast),
+    border-color var(--motion-fast),
+    background-color var(--motion-fast);
+}
+
+.ui-sortable__item.is-dragging {
+  opacity: 0.54;
+}
+
+.ui-sortable__item.is-over {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.ui-sortable__handle {
+  display: grid;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: grab;
+}
+
+.ui-sortable__handle:active {
+  cursor: grabbing;
+}
+
+.ui-sortable__handle:hover:not(:disabled) {
+  background: var(--color-surface-subtle);
+}
+
+.ui-sortable__handle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ui-sortable__handle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ui-sortable__content {
+  min-width: 0;
+}
+
+.ui-sortable__actions {
+  display: flex;
+  gap: var(--space-1);
+}

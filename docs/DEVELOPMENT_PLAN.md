@@ -1,10 +1,10 @@
 # iiiu-nav Development Plan
 
 > Document ID: `IIU-NAV-PLAN-001`
-> Version: `1.2`
+> Version: `1.23`
 > Updated: `2026-08-19`
-> Product status: `REQUIREMENTS_CONFIRMED`
-> Development status: `NOT_STARTED`
+> Product status: `RELEASE_CANDIDATE`
+> Development status: `COMPLETE`
 
 This document is the source of truth for product scope, architecture, acceptance criteria, and delivery status. New development sessions must read it completely before changing product code.
 
@@ -23,22 +23,22 @@ Build a lightweight, single-user, self-hosted navigation website. The public pag
 
 ## 2. Fixed Architecture
 
-| Area | Decision |
-| --- | --- |
-| Backend | Go, using the standard HTTP stack unless a small dependency removes concrete complexity |
-| Frontend | Preact + TypeScript + Vite |
-| Styling | Plain CSS with design tokens; no full UI framework |
-| UI primitives | Small in-repository components for buttons, fields, dialogs, drawers, menus, tooltips, toasts, and empty states |
-| Interface icons | `lucide-preact`, imported through a curated registry |
-| Brand icons | Selected build-time imports from `simple-icons`; no runtime icon CDN |
-| Floating elements | `@floating-ui/dom` for collision-aware menus, pickers, and tooltips |
-| Reordering | `@atlaskit/pragmatic-drag-and-drop` core package with non-drag alternatives |
-| Database | SQLite with WAL mode and versioned migrations |
-| Uploaded files | `/data/uploads/logos`, `/data/uploads/backgrounds`, and `/data/uploads/site` |
-| Backups | `/data/backups` |
-| Deployment | Multi-stage Docker build; frontend embedded in the Go binary |
-| Runtime | One container, one process, one mounted `/data` volume |
-| Authentication | One administrator password and server-side sessions |
+| Area              | Decision                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Backend           | Go, using the standard HTTP stack unless a small dependency removes concrete complexity                                  |
+| Frontend          | Preact + TypeScript + Vite                                                                                               |
+| Styling           | Plain CSS with design tokens; no full UI framework                                                                       |
+| UI primitives     | Small in-repository components for buttons, fields, dialogs, drawers, menus, tooltips, toasts, and empty states          |
+| Interface icons   | `lucide-preact`, imported through a curated registry                                                                     |
+| Brand icons       | Selected build-time imports from `simple-icons`; no runtime icon CDN                                                     |
+| Floating elements | `@floating-ui/dom` for collision-aware menus, pickers, and tooltips                                                      |
+| Reordering        | `@atlaskit/pragmatic-drag-and-drop` core package with non-drag alternatives                                              |
+| Database          | SQLite through `database/sql` and the pinned pure-Go `modernc.org/sqlite` driver, with WAL mode and versioned migrations |
+| Uploaded files    | `/data/uploads/logos`, `/data/uploads/backgrounds`, and `/data/uploads/site`                                             |
+| Backups           | `/data/backups`                                                                                                          |
+| Deployment        | Multi-stage Docker build; frontend embedded in the Go binary                                                             |
+| Runtime           | One container, one process, one mounted `/data` volume                                                                   |
+| Authentication    | One administrator; Argon2id password hashes; 256-bit random server-side sessions stored as SHA-256 hashes                |
 
 ### 2.1 Persistent layout
 
@@ -51,6 +51,8 @@ Build a lightweight, single-user, self-hosted navigation website. The public pag
 │   └── site/
 └── backups/
 ```
+
+The container sets `IIU_NAV_DATA_DIR=/data`. Direct local runs default to `./data`; the environment variable can select another root. Database timestamps are stored as UTC Unix milliseconds and schema tables use SQLite `STRICT` typing.
 
 ### 2.2 Initial data model
 
@@ -93,6 +95,16 @@ sessions
 ```
 
 Schema changes must use forward migrations. Deleting a category with links requires either moving its links to another category or explicitly deleting them.
+
+### 2.3 Go module organization
+
+- `cmd/iiiu-nav` is the composition root. It may load configuration, wire dependencies, and manage process lifecycle, but it contains no business rules or persistence queries.
+- `internal/server` owns HTTP routing and transport concerns. Handlers decode and validate requests, call the responsible module, and encode responses; they do not contain SQL or filesystem workflows.
+- Product behavior is grouped into cohesive modules such as navigation, authentication, metadata recognition, data transfer, and settings. Persistence and external HTTP access are adapters at explicit seams.
+- Dependencies point toward product behavior. Domain modules do not import HTTP handlers or SQLite implementations.
+- Interfaces live with the module that consumes them and are introduced only for a real alternate adapter or a useful test seam. Avoid pass-through layers and one-method wrappers that add no behavior.
+- Do not create catch-all `utils`, `common`, `helpers`, or `service` packages. A package and file must have one clear reason to change and names must describe product responsibility.
+- Prefer deep modules with small interfaces over many shallow packages. Module tests exercise the same interface used by callers; HTTP and SQLite behavior receive focused integration tests.
 
 ## 3. Functional Requirements
 
@@ -394,21 +406,40 @@ Visual implementation is accepted only after screenshots are reviewed in light a
 - Responses set `Referrer-Policy: no-referrer` so external sites do not receive the navigation page URL.
 - Privacy behavior is verified for anonymous, authenticated, cached, and search-engine crawler requests.
 
+### `NFR-008` Maintainable Go code
+
+- All Go code passes `gofmt`, `go vet`, and the applicable automated tests before a backlog item is completed.
+- Non-generated Go files approaching `300` lines require a responsibility review. Split files that contain unrelated reasons to change; a cohesive implementation may remain intact with a short review note.
+- The executable entry point remains limited to composition and lifecycle, and transport, product behavior, persistence, and external integrations remain independently testable.
+- Shared behavior is centralized behind a small interface only when doing so improves leverage or locality; speculative abstractions and circular package dependencies are not accepted.
+
 ## 6. Verification Gates
 
-Commands will be filled in after scaffolding establishes the project scripts. Until then, each completed feature must satisfy the applicable gates below.
+Run the current scaffold verification from the repository root:
 
-| Gate | Required evidence |
-| --- | --- |
-| Backend | Go formatting, static analysis, unit tests, and integration tests pass |
-| Frontend | Formatting, lint, TypeScript check, and component tests pass |
-| End-to-end | Login, password change/reset, privacy, site settings, category/link CRUD, search, import/export, backup, restore, and upgrade workflows pass |
-| Visual | Playwright screenshots at `360`, `768`, `1024`, and `1440` in light and dark themes |
-| Responsive | No incoherent overlaps, clipping, or horizontal page overflow |
-| Security | Anonymous private-data, privacy-header, upload validation, and restore validation tests pass |
-| Build | Production Docker image builds and starts with a fresh `/data` volume |
-| Compatibility | Current supported browsers pass core smoke tests; `amd64` and `arm64` images build and start |
-| Persistence | Restart retains settings, categories, links, and uploaded assets |
+```text
+npm ci
+npm run check
+npm run build
+docker build --target go-test -t iiiu-nav:test .
+docker build -t iiiu-nav:dev .
+docker run --rm -p 8080:8080 -v iiiu-nav-data:/data iiiu-nav:dev
+```
+
+Each completed feature must also satisfy the applicable gates below.
+
+| Gate            | Required evidence                                                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend         | Go formatting, static analysis, unit tests, and integration tests pass                                                                       |
+| Frontend        | Formatting, lint, TypeScript check, and component tests pass                                                                                 |
+| End-to-end      | Login, password change/reset, privacy, site settings, category/link CRUD, search, import/export, backup, restore, and upgrade workflows pass |
+| Visual          | Playwright screenshots at `360`, `768`, `1024`, and `1440` in light and dark themes                                                          |
+| Responsive      | No incoherent overlaps, clipping, or horizontal page overflow                                                                                |
+| Security        | Anonymous private-data, privacy-header, upload validation, and restore validation tests pass                                                 |
+| Build           | Production Docker image builds and starts with a fresh `/data` volume                                                                        |
+| Compatibility   | Current supported browsers pass core smoke tests; `amd64` and `arm64` images build and start                                                 |
+| Persistence     | Restart retains settings, categories, links, and uploaded assets                                                                             |
+| Maintainability | Go package responsibilities, dependency direction, file-size review, formatting, static analysis, and focused tests satisfy `NFR-008`        |
 
 ## 7. Development Backlog
 
@@ -419,29 +450,29 @@ Status values:
 - `BLOCKED`: cannot progress; reason must be recorded in Notes.
 - `DONE`: acceptance criteria and verification gates have passed.
 
-| ID | Status | Depends on | Deliverable | Completion criterion | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `NAV-001` | `TODO` | - | Scaffold Go, Preact, TypeScript, Vite, Docker, and local development | Fresh checkout builds frontend and backend, runs locally, and serves embedded production assets | - |
-| `NAV-002` | `TODO` | `NAV-001` | Data paths, SQLite connection, WAL, migrations, and repositories | Fresh and existing databases migrate idempotently; repository integration tests pass | - |
-| `NAV-003` | `TODO` | `NAV-002` | Administrator bootstrap, login, sessions, logout, and middleware | All `FR-009` criteria pass, including anonymous rejection tests | - |
-| `NAV-100` | `TODO` | `NAV-001` | Design tokens, internal UI primitives, icon registry, floating elements, and drag behavior | `NFR-005` passes and component tests cover every shared control state | - |
-| `NAV-101` | `TODO` | `NAV-100` | Visual shell, sidebar, grid, cards, and theme | `FR-001`, `FR-002`, and `FR-008` visual criteria pass with fixture data | - |
-| `NAV-102` | `TODO` | `NAV-002`, `NAV-003`, `NAV-101` | Public/private navigation read API and UI integration | Anonymous and administrator views return exactly the permitted categories and links | - |
-| `NAV-103` | `TODO` | `NAV-101`, `NAV-102` | Combined local and web search | Every `FR-007` criterion passes with keyboard and pointer tests | - |
-| `NAV-201` | `TODO` | `NAV-003`, `NAV-102` | In-place administrator mode and responsive forms | Every `FR-014` criterion passes on desktop and mobile | - |
-| `NAV-202` | `TODO` | `NAV-201` | Category CRUD, icons, privacy, deletion flow, and ordering | Every `FR-003` and `FR-015` criterion passes, including reload and API privacy tests | - |
-| `NAV-203` | `TODO` | `NAV-202` | Link CRUD, movement, deletion, and ordering | Every `FR-004` criterion passes, including reload tests | - |
-| `NAV-204` | `TODO` | `NAV-203` | Metadata recognition, favicon caching, generated fallback, and logo upload | Every `FR-005` and logo portion of `FR-006` passes | - |
-| `NAV-205` | `TODO` | `NAV-201`, `NAV-204` | Site identity, appearance, background upload, indexing, and search-engine settings | Site/background portions of `FR-006`, plus `FR-008`, `FR-016`, and the indexing setting in `NFR-007`, pass | - |
-| `NAV-301` | `TODO` | `NAV-202`, `NAV-203`, `NAV-204` | Bookmark HTML and application JSON import preview and commit | Every import criterion in `FR-010` and `FR-011` passes with transactional tests | - |
-| `NAV-302` | `TODO` | `NAV-301` | Browser HTML and application JSON export | Every export criterion in `FR-011` passes and exported HTML imports into a test parser | - |
-| `NAV-303` | `TODO` | `NAV-205` | Consistent full backup creation and management | Every `FR-012` criterion passes against live WAL writes and uploaded assets | - |
-| `NAV-304` | `TODO` | `NAV-303` | Validated, recoverable full restore | Every `FR-013` criterion passes for valid, corrupt, incompatible, and malicious archives | - |
-| `NAV-305` | `TODO` | `NAV-303`, `NAV-304` | Version checks, pre-migration backup, safe upgrade, and rollback behavior | Every `FR-017` criterion passes for successful, failed, and incompatible migrations | - |
-| `NAV-401` | `TODO` | `NAV-103`, `NAV-205`, `NAV-305` | Complete responsive and visual QA | Required screenshots are reviewed; no overlap, overflow, blank, or unreadable states remain | - |
-| `NAV-402` | `TODO` | `NAV-305` | Security, privacy, and data-safety hardening | `NFR-002`, `NFR-003`, `NFR-007`, and security verification gates pass | - |
-| `NAV-403` | `TODO` | `NAV-401`, `NAV-402` | Performance and footprint optimization | `NFR-001` budgets are measured and met or exceptions are documented and accepted | - |
-| `NAV-404` | `TODO` | `NAV-403` | Compatible images, deployment, and operator documentation | `NFR-006` passes and a new operator can deploy, reset the password, back up, restore, upgrade, and roll back using only repository docs | - |
+| ID        | Status | Depends on                      | Deliverable                                                                                | Completion criterion                                                                                                                    | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------- | ------ | ------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NAV-001` | `DONE` | -                               | Scaffold Go, Preact, TypeScript, Vite, Docker, and local development                       | Fresh checkout builds frontend and backend, runs locally, and serves embedded production assets                                         | Checks, production build, Docker build, API smoke test, and browser smoke test passed on 2026-08-19                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `NAV-002` | `DONE` | `NAV-001`                       | Data paths, SQLite connection, WAL, migrations, and repositories                           | Fresh and existing databases migrate idempotently; repository integration tests pass                                                    | Fresh/reopen migrations, repository persistence and constraints, Linux tests, production build, and named-volume restart passed on 2026-08-19                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `NAV-003` | `DONE` | `NAV-002`                       | Administrator bootstrap, login, sessions, logout, and middleware                           | All `FR-009` criteria pass, including anonymous rejection tests                                                                         | Unit, SQLite/HTTP integration, anonymous rejection, rate-limit, origin, Cookie, container bootstrap, reset, and restart checks passed on 2026-08-19                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `NAV-100` | `DONE` | `NAV-001`                       | Design tokens, internal UI primitives, icon registry, floating elements, and drag behavior | `NFR-005` passes and component tests cover every shared control state                                                                   | 14 component tests, production build, 12.90 KiB gzip JavaScript, and light/dark screenshots at all four required widths passed on 2026-08-19                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `NAV-101` | `DONE` | `NAV-100`                       | Visual shell, sidebar, grid, cards, and theme                                              | `FR-001`, `FR-002`, and `FR-008` visual criteria pass with fixture data                                                                 | 22 frontend tests, full checks, production build, 22.17 KiB gzip JavaScript, theme persistence, and light/dark screenshots at all four required widths passed on 2026-08-19                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `NAV-102` | `DONE` | `NAV-002`, `NAV-003`, `NAV-101` | Public/private navigation read API and UI integration                                      | Anonymous and administrator views return exactly the permitted categories and links                                                     | SQLite aggregate, anonymous/authenticated HTTP integration, invalid-session fallback, 26 frontend tests, full checks, production build, and real empty-database browser smoke passed on 2026-08-19                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `NAV-103` | `DONE` | `NAV-101`, `NAV-102`            | Combined local and web search                                                              | Every `FR-007` criterion passes with keyboard and pointer tests                                                                         | Local name, description, and URL matching, keyboard and pointer behavior, web URL encoding, authenticated engine enable/disable/reordering, 36 frontend tests, full checks, production build, 31.97 KiB gzip JavaScript, and light/dark screenshots at all four required widths passed on 2026-08-19                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `NAV-201` | `DONE` | `NAV-003`, `NAV-102`            | In-place administrator mode and responsive forms                                           | Every `FR-014` criterion passes on desktop and mobile                                                                                   | Login, rate-limit and error handling, administrator menu, password change with session invalidation, logout, toast feedback, stable focus trapping, same-origin development proxy, 42 frontend tests, full checks, production build, 34.63 KiB gzip JavaScript, real Cookie-session browser flow, and light/dark responsive checks passed on 2026-08-19                                                                                                                                                                                                                                                                                                                                                           |
+| `NAV-202` | `DONE` | `NAV-201`                       | Category CRUD, icons, privacy, deletion flow, and ordering                                 | Every `FR-003` and `FR-015` criterion passes, including reload and API privacy tests                                                    | Authenticated category CRUD and full ordering APIs, transactional link move/delete choices, backend privacy, stable generated slugs, curated searchable icons, no-icon support, keyboard ordering, 47 frontend tests, full checks, production build, 36.86 KiB gzip JavaScript, real session persistence/privacy workflow, and light/dark responsive checks passed on 2026-08-19                                                                                                                                                                                                                                                                                                                                  |
+| `NAV-203` | `DONE` | `NAV-202`                       | Link CRUD, movement, deletion, and ordering                                                | Every `FR-004` criterion passes, including reload tests                                                                                 | Authenticated link CRUD and full per-category ordering APIs, transactional cross-category movement, strict HTTP/HTTPS validation, manual name, description, category and generated-logo overrides, in-card edit affordances, destructive confirmation, 51 frontend tests, full checks, production build, 38.52 KiB gzip JavaScript, real session create/edit/move/order/delete/reload workflow, and light/dark responsive checks passed on 2026-08-19                                                                                                                                                                                                                                                             |
+| `NAV-204` | `DONE` | `NAV-203`                       | Metadata recognition, favicon caching, generated fallback, and logo upload                 | Every `FR-005` and logo portion of `FR-006` passes                                                                                      | Public-address-only fetching with DNS rebinding protection, bounded redirects, timeouts and response sizes, structured title/description/icon discovery, root-favicon fallback, normalized PNG caching from PNG/JPEG/WebP/ICO, authenticated 2 MiB uploads, generated server filenames, reference-aware cleanup, cached-logo preservation on refresh failures, individual and bulk retries, editable failure fallback, 54 frontend tests, full checks, production build, 40.25 KiB gzip JavaScript, real PNG HTTP lifecycle, and light/dark browser checks at 360/768/1024/1440 px passed on 2026-08-19                                                                                                           |
+| `NAV-205` | `DONE` | `NAV-201`, `NAV-204`            | Site identity, appearance, background upload, indexing, and search-engine settings         | Site/background portions of `FR-006`, plus `FR-008`, `FR-016`, and the indexing setting in `NFR-007`, pass                              | Authenticated site-name, logo, favicon, accent, background, overlay and indexing settings; format-specific bounded image normalization and orphan cleanup; default favicon and crawler directives; 59 frontend tests, full checks, production build, 42.20 KiB gzip JavaScript, real PNG/ICO/WebP lifecycle, and light/dark browser checks at 360/768/1024/1440 px passed on 2026-08-19                                                                                                                                                                                                                                                                                                                           |
+| `NAV-301` | `DONE` | `NAV-202`, `NAV-203`, `NAV-204` | Bookmark HTML and application JSON import preview and commit                               | Every import criterion in `FR-010` and `FR-011` passes with transactional tests                                                         | Authenticated 20 MiB HTML/JSON uploads, UTF-8 BOM and declared browser encodings, nested-folder flattening, Unicode case-folded category mapping, unfiled handling, canonical URL duplicate detection, skip/update/create strategies, atomic SQLite commit and rollback, asynchronous post-commit metadata refresh, 61 frontend tests, full checks, production build, 43.74 KiB gzip JavaScript, real preview/commit/cleanup HTTP lifecycle, and light/dark responsive drawer checks passed on 2026-08-19                                                                                                                                                                                                         |
+| `NAV-302` | `DONE` | `NAV-301`                       | Browser HTML and application JSON export                                                   | Every export criterion in `FR-011` passes and exported HTML imports into a test parser                                                  | Authenticated HTML/JSON downloads with public/private/all scopes, Netscape folder output accepted by the import parser, lossless application JSON for category icons, descriptions, link icon references, ordering and visibility, attachment and no-store responses, anonymous rejection, 63 frontend tests, full checks, production build, 44.43 KiB gzip JavaScript, real scoped-download HTTP lifecycle, and light/dark responsive drawer checks passed on 2026-08-19                                                                                                                                                                                                                                         |
+| `NAV-303` | `DONE` | `NAV-205`                       | Consistent full backup creation and management                                             | Every `FR-012` criterion passes against live WAL writes and uploaded assets                                                             | Runtime `VACUUM INTO` snapshots under concurrent WAL writes, session removal and integrity checks, conservative main/WAL/SHM/upload space budgeting, SHA-256 manifest, database and upload ZIP entries, hidden workspace cleanup and atomic publication, authenticated create/list/download/delete APIs, 65 frontend tests, full checks, production build, 45.59 KiB gzip JavaScript, Linux cross-build, real archive inspection and delete lifecycle, and light/dark responsive management checks passed on 2026-08-19                                                                                                                                                                                           |
+| `NAV-304` | `DONE` | `NAV-303`                       | Validated, recoverable full restore                                                        | Every `FR-013` criterion passes for valid, corrupt, incompatible, and malicious archives                                                | Authenticated password reverification and explicit confirmation; 256 MiB compressed and 512 MiB extracted limits; traversal, duplicate, case-collision, path-policy, manifest, checksum, schema, administrator and SQLite integrity validation; pre-restore backup and space checks; request maintenance gate; database/upload swap with stage-specific rollback and reopen; restored-session invalidation; 67 frontend tests, full checks, production build, 46.59 KiB gzip JavaScript, real backup/modify/restore/relogin/cleanup lifecycle, and light/dark responsive restore checks passed on 2026-08-19                                                                                                      |
+| `NAV-305` | `DONE` | `NAV-303`, `NAV-304`            | Version checks, pre-migration backup, safe upgrade, and rollback behavior                  | Every `FR-017` criterion passes for successful, failed, and incompatible migrations                                                     | Read-only startup preflight, explicit application/schema logging, safe v1 snapshot before v2, all-pending-migrations transaction, named failure and preserved backup reporting, newer-schema rollback guidance, successful/failed/incompatible integration tests, full checks, production build, Windows build, Linux amd64 cross-build, and real idempotent v1-to-v2 startup lifecycle passed on 2026-08-19                                                                                                                                                                                                                                                                                                      |
+| `NAV-401` | `DONE` | `NAV-103`, `NAV-205`, `NAV-305` | Complete responsive and visual QA                                                          | Required screenshots are reviewed; no overlap, overflow, blank, or unreadable states remain                                             | Fixture-backed light/dark screenshots at 360/768/1024/1440 px; anonymous/private and administrator views; search results; login, category, link, settings, import, export, backup and restore overlays; loading failure and retry; computed overflow and dialog-bound checks; mobile sortable-control density fixes; 67 frontend tests and production build passed on 2026-08-19                                                                                                                                                                                                                                                                                                                                  |
+| `NAV-402` | `DONE` | `NAV-305`                       | Security, privacy, and data-safety hardening                                               | `NFR-002`, `NFR-003`, `NFR-007`, and security verification gates pass                                                                   | Private API authorization and cache boundaries, cross-origin write rejection, bounded image/import/archive handling, traversal and rollback coverage, CSP/COOP/CORP/framing/sniffing/referrer/permissions headers, unknown-API isolation, crawler privacy, credential exclusions, Go 1.26.6 security toolchain pin, zero reachable govulncheck findings, zero npm audit findings, full tests, static analysis, container test stage, and production CSP rendering passed on 2026-08-19                                                                                                                                                                                                                            |
+| `NAV-403` | `DONE` | `NAV-401`, `NAV-402`            | Performance and footprint optimization                                                     | `NFR-001` budgets are measured and met or exceptions are documented and accepted                                                        | Initial JavaScript 46.59 KiB gzip against 120 KiB; final distroless image 6.33 MiB against 60 MiB; 500-link idle container RSS 4.43 MiB against 64 MiB; indexed 2,000-link SQLite read 5.36 ms; 100 real public HTTP reads at 2,000 links measured 15.32 ms median and 17.37 ms P95 with a 354,232-byte response; repeatable benchmark/index-plan test, full checks, and production build passed on 2026-08-19                                                                                                                                                                                                                                                                                                    |
+| `NAV-404` | `DONE` | `NAV-403`                       | Compatible images, deployment, and operator documentation                                  | `NFR-006` passes and a new operator can deploy, reset the password, back up, restore, upgrade, and roll back using only repository docs | Chromium, Firefox 153, and WebKit 26.5 core smoke tests passed at desktop and mobile widths; combined `linux/amd64` and `linux/arm64` OCI output built; native amd64 and QEMU user-mode arm64 binaries started and served the embedded application; hardened Compose deployment started with an isolated fresh volume; README and operator documentation cover initial deployment, TLS proxies, password reset, backup, restore, upgrades, schema rollback, multi-architecture publishing, compatibility, and troubleshooting; fresh dependency install, 67 frontend tests, Go tests, static analysis, production build, container test stage, and zero reachable dependency vulnerabilities passed on 2026-08-19 |
 
 ## 8. Delivery Sequence
 
@@ -463,16 +494,42 @@ Do not mark a backlog item `DONE` from code inspection alone. Run and record the
 - Search combines local matching with selectable external engines.
 - The application stores one background image, with configurable overlay strength.
 - Complete recovery uses a ZIP containing both SQLite data and uploaded assets.
-- Automatic scheduled backups are outside the first release; manual and pre-restore backups are included.
+- Automatic scheduled backups are outside the first release; manual, pre-restore, and pre-migration backups are included.
 - Site name, site logo, favicon, accent color, and search indexing are administrator-configurable system settings.
 - The default site identity is `iiiu-nav` with a bundled neutral navigation mark.
 - Search indexing defaults to disabled.
 - The first release is Simplified Chinese, root-path deployed, and built for `linux/amd64` and `linux/arm64`.
+- Administrator passwords contain 12 or more characters and at most 1024 bytes. Bootstrap and recovery read `ADMIN_PASSWORD_FILE`; trailing newlines are ignored.
+- Argon2id uses `64 MiB` memory, three iterations, and four threads. Sessions expire after 30 days and only a SHA-256 token hash is stored.
+- Five failed logins from one direct client address within 10 minutes block further attempts until the window expires; a successful login clears that client's failures.
+- State-changing HTTP requests require a matching `Origin` or `Referer`, reject cross-site Fetch Metadata, and use a host-only `HttpOnly`, `SameSite=Strict` session cookie.
+- TLS-terminating reverse proxies preserve the public `Host` and set `X-Forwarded-Proto: https`.
 
 ## 10. Change Log
 
-| Version | Date | Change |
-| --- | --- | --- |
-| `1.2` | `2026-08-19` | Added site identity settings, credential recovery, import edge cases, backup limits, upgrade safety, runtime compatibility, and privacy defaults |
-| `1.1` | `2026-08-19` | Added the internal UI component strategy, library decisions, category icons, and their acceptance criteria |
-| `1.0` | `2026-08-19` | Initial confirmed scope, architecture, acceptance criteria, and backlog |
+| Version | Date         | Change                                                                                                                                                                                                                   |
+| ------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `1.23`  | `2026-08-19` | Completed supported-browser smoke coverage, multi-architecture OCI builds, hardened Compose deployment, production operation and recovery documentation, final quality gates, and release-candidate status               |
+| `1.22`  | `2026-08-19` | Added a repeatable indexed 2,000-link repository benchmark and completed JavaScript, image, idle-memory, and public-HTTP performance budget measurements                                                                 |
+| `1.21`  | `2026-08-19` | Added strict browser security headers, non-cacheable cross-origin and unknown-API responses, Docker credential exclusions, a patched Go 1.26.6 toolchain pin, and dependency vulnerability verification                  |
+| `1.20`  | `2026-08-19` | Completed full light/dark responsive visual regression, public/private and administrative overlay review, overflow measurements, failure-state recovery, and mobile sortable-control density fixes                       |
+| `1.19`  | `2026-08-19` | Added read-only schema preflight, automatic pre-migration snapshots, transactional migration batches, failed-upgrade preservation and diagnostics, incompatible-newer-schema refusal, and a real v1-to-v2 migration      |
+| `1.18`  | `2026-08-19` | Added password-confirmed full restore, bounded and traversal-safe extraction, manifest and SQLite validation, automatic pre-restore backup, maintenance gating, atomic data exchange, rollback, and session invalidation |
+| `1.17`  | `2026-08-19` | Added consistent SQLite snapshot backups, session stripping, upload archiving, integrity manifests, disk-space checks, atomic publication, authenticated lifecycle APIs, and in-place backup management                  |
+| `1.16`  | `2026-08-19` | Added administrator-only Netscape HTML and lossless application JSON exports, public/private/all scopes, verified round trips, download responses, and responsive export UI                                              |
+| `1.15`  | `2026-08-19` | Added browser HTML and application JSON import preview, encoding-aware nested-folder parsing, Unicode category matching, canonical duplicate strategies, transactional commit, and responsive import UI                  |
+| `1.14`  | `2026-08-19` | Added configurable site identity, normalized logo/favicon/background uploads, accent and overlay appearance settings, safe image cleanup, indexing controls, crawler directives, and responsive settings UI              |
+| `1.13`  | `2026-08-19` | Added SSRF-resistant metadata recognition, bounded favicon discovery and caching, normalized logo uploads, generated fallbacks, reference-aware cleanup, manual and bulk refresh controls, and responsive image previews |
+| `1.12`  | `2026-08-19` | Added authenticated link creation, editing, category movement, full ordering, strict URL validation, manual generated-logo overrides, in-card edit controls, and deletion confirmation                                   |
+| `1.11`  | `2026-08-19` | Added authenticated category creation, editing, privacy, full ordering, transactional deletion choices, generated slugs, and a searchable curated category icon picker                                                   |
+| `1.10`  | `2026-08-19` | Added in-place administrator login, password change and logout flows, responsive authentication forms, session feedback, stable modal focus handling, and a same-origin development proxy                                |
+| `1.9`   | `2026-08-19` | Added combined local and external search, keyboard and pointer result handling, fixed engine configuration, and authenticated engine enable, disable, and ordering settings                                              |
+| `1.8`   | `2026-08-19` | Added bounded navigation reads, backend public/private filtering with optional sessions, API response validation, and loading, error, retry, empty, and administrator UI states                                          |
+| `1.7`   | `2026-08-19` | Added the responsive navigation shell, desktop and mobile category controls, stable link cards, fixture states, and persistent light, dark, and system themes                                                            |
+| `1.6`   | `2026-08-19` | Added design tokens, shared UI primitives, curated category icons, collision-aware floating elements, accessible reordering, and component-test coverage                                                                 |
+| `1.5`   | `2026-08-19` | Added administrator bootstrap, Argon2id policy, hashed sessions, login rate limiting, origin protection, password recovery, and authentication verification defaults                                                     |
+| `1.4`   | `2026-08-19` | Fixed the SQLite driver and connection policy, documented data-root and timestamp behavior, and completed the persistent data foundation                                                                                 |
+| `1.3`   | `2026-08-19` | Added Go module boundaries, dependency direction, maintainability requirements, and a file responsibility review threshold                                                                                               |
+| `1.2`   | `2026-08-19` | Added site identity settings, credential recovery, import edge cases, backup limits, upgrade safety, runtime compatibility, and privacy defaults                                                                         |
+| `1.1`   | `2026-08-19` | Added the internal UI component strategy, library decisions, category icons, and their acceptance criteria                                                                                                               |
+| `1.0`   | `2026-08-19` | Initial confirmed scope, architecture, acceptance criteria, and backlog                                                                                                                                                  |

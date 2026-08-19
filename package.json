@@ -1,0 +1,22 @@
+{
+  "name": "iiiu-nav",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "dev:api": "go run ./cmd/iiiu-nav",
+    "dev:web": "npm run dev --workspace @iiiu-nav/web",
+    "build:web": "npm run build --workspace @iiiu-nav/web",
+    "build": "npm run build:web && go build -tags production -trimpath ./cmd/iiiu-nav",
+    "start": "go run -tags production ./cmd/iiiu-nav",
+    "format": "npm run format --workspace @iiiu-nav/web && go fmt ./...",
+    "check:web": "npm run check --workspace @iiiu-nav/web",
+    "check:go": "go test ./cmd/... ./internal/... && go vet ./cmd/... ./internal/...",
+    "check": "npm run check:web && npm run check:go"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

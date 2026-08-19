@@ -1,0 +1,174 @@
+.bookmark-import {
+  display: grid;
+  gap: var(--space-5);
+}
+.bookmark-import__intro {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+.bookmark-import__field {
+  display: grid;
+  gap: var(--space-2);
+}
+.bookmark-import__field > span,
+.bookmark-import__field > .ui-file + small {
+  font-size: var(--font-size-sm);
+}
+.bookmark-import__field > span {
+  font-weight: 600;
+}
+.bookmark-import__field > small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+.bookmark-import select {
+  min-height: var(--control-height-md);
+  width: 100%;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+.bookmark-export {
+  display: grid;
+  gap: var(--space-5);
+}
+.bookmark-export > p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+.bookmark-export__choice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block: var(--space-4);
+  border-block: 1px solid var(--color-border);
+}
+.bookmark-export__choice + .bookmark-export__choice {
+  margin-top: calc(var(--space-5) * -1);
+  border-top: 0;
+}
+.bookmark-export__choice strong,
+.bookmark-export__choice small {
+  display: block;
+}
+.bookmark-export__choice strong {
+  font-size: var(--font-size-sm);
+}
+.bookmark-export__choice small {
+  margin-top: 3px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+.bookmark-preview {
+  display: grid;
+  gap: var(--space-3);
+  padding-block: var(--space-4);
+  border-block: 1px solid var(--color-border);
+}
+.bookmark-preview__heading,
+.bookmark-preview__categories header,
+.bookmark-preview__categories li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.bookmark-preview h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  letter-spacing: 0;
+}
+.bookmark-preview__heading > span,
+.bookmark-preview__categories header > span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.bookmark-preview__summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.bookmark-preview__summary > div {
+  min-width: 0;
+  padding: var(--space-3);
+}
+.bookmark-preview__summary > div + div {
+  border-left: 1px solid var(--color-border);
+}
+.bookmark-preview__summary dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.bookmark-preview__summary dd {
+  margin: 2px 0 0;
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+}
+.bookmark-preview__categories {
+  display: grid;
+  gap: var(--space-4);
+}
+.bookmark-preview__categories section,
+.bookmark-preview__categories ul {
+  display: grid;
+  gap: var(--space-2);
+}
+.bookmark-preview__categories ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bookmark-preview__categories li {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+.bookmark-preview__categories li > span {
+  min-width: 0;
+}
+.bookmark-preview__categories li strong,
+.bookmark-preview__categories li small {
+  display: block;
+}
+.bookmark-preview__categories li strong {
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+}
+.bookmark-preview__categories li small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+}
+.bookmark-preview__categories li > small {
+  flex: 0 0 92px;
+  text-align: right;
+}
+.bookmark-preview__categories li[data-status='duplicate'] > small {
+  color: var(--color-warning);
+}
+.bookmark-preview__categories li[data-status='invalid'] > small,
+.bookmark-import__error {
+  color: var(--color-danger);
+}
+.bookmark-import__error {
+  margin: 0;
+  font-size: var(--font-size-xs);
+}
+.bookmark-import__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}

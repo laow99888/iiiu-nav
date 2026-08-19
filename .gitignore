@@ -5,6 +5,8 @@
 .env
 .env.*
 !.env.example
+/admin-password*
+/secrets/
 *.key
 *.pem
 
@@ -20,6 +22,7 @@ coverage/
 /iiiu-nav.exe
 
 # Test artifacts
+.go-tmp/
 playwright-report/
 test-results/
 

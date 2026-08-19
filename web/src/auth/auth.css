@@ -1,0 +1,35 @@
+.auth-controls {
+  margin-top: var(--space-3);
+}
+
+.auth-controls > .ui-button,
+.auth-controls > .ui-menu__anchor,
+.auth-controls > .ui-menu__anchor > .ui-button {
+  width: 100%;
+}
+
+.auth-controls--compact {
+  margin-top: 0;
+}
+
+.auth-controls--compact > .ui-menu__anchor > .ui-button {
+  width: auto;
+}
+
+.auth-controls--compact > .ui-tooltip__anchor > .ui-button {
+  width: var(--control-height-md);
+  padding: 0;
+}
+
+.auth-form {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.auth-form__submit {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
