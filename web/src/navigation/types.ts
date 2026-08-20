@@ -37,7 +37,7 @@ export const defaultSiteSettings: SiteSettings = {
   name: 'iiiu-nav',
   logoUrl: '',
   faviconUrl: '',
-  accentColor: '#1769aa',
+  accentColor: '#305880',
   backgroundUrl: '',
   backgroundOverlay: 78,
   indexingEnabled: false,

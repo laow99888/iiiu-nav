@@ -180,4 +180,4 @@ func indexingHeaders(store SettingsStore, next http.Handler) http.Handler {
 	})
 }
 
-const defaultFavicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#1769aa"/><circle cx="16" cy="16" r="8" fill="none" stroke="white" stroke-width="2"/><path d="m18.5 13.5-2 5-5 2 2-5 5-2Z" fill="white"/></svg>`
+const defaultFavicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#305880"/><circle cx="16" cy="16" r="8" fill="none" stroke="white" stroke-width="2"/><path d="m18.5 13.5-2 5-5 2 2-5 5-2Z" fill="white"/></svg>`

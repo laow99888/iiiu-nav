@@ -33,7 +33,7 @@
   flex-direction: column;
   padding: var(--space-4) var(--space-3);
   border-right: 1px solid var(--color-border);
-  background: var(--color-canvas);
+  background: var(--color-sidebar);
 }
 
 .site-identity {
@@ -107,7 +107,7 @@
 }
 
 .category-nav--desktop .category-nav__item {
-  min-height: 34px;
+  min-height: 36px;
   width: 100%;
   grid-template-columns: 16px minmax(0, 1fr) auto;
   gap: var(--space-2);

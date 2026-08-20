@@ -23,7 +23,7 @@ type Settings struct {
 
 func Default() Settings {
 	return Settings{
-		Name: "iiiu-nav", AccentColor: "#1769aa",
+		Name: "iiiu-nav", AccentColor: "#305880",
 		BackgroundOverlay: 78, IndexingEnabled: false,
 	}
 }

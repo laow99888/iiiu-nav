@@ -44,7 +44,7 @@ describe('站点设置', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual(
       expect.objectContaining({
         name: '我的导航',
-        accentColor: '#1769aa',
+        accentColor: '#305880',
         backgroundOverlay: 78,
         indexingEnabled: true,
       }),

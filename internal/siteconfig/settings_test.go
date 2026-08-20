@@ -2,6 +2,13 @@ package siteconfig
 
 import "testing"
 
+func TestDefaultUsesWarmCompactAccent(t *testing.T) {
+	t.Parallel()
+	if got := Default().AccentColor; got != "#305880" {
+		t.Fatalf("default accent = %q, want #305880", got)
+	}
+}
+
 func TestValidateNormalizesSiteSettings(t *testing.T) {
 	t.Parallel()
 	value, err := Validate(Settings{
