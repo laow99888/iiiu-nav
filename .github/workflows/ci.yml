@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Frontend, backend, and static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          cache: npm
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: 1.26.6
+          cache: true
+      - name: Install dependencies
+        run: npm ci
+      - name: Frontend checks
+        run: npm run check:web
+      - name: Frontend production build
+        run: npm run build:web
+      - name: Go formatting
+        run: |
+          unformatted=$(gofmt -l cmd internal)
+          if [ -n "$unformatted" ]; then
+            echo "Files need gofmt:" >&2
+            echo "$unformatted" >&2
+            exit 1
+          fi
+      - name: Go tests
+        run: go test ./cmd/... ./internal/...
+      - name: Go static analysis
+        run: go vet ./cmd/... ./internal/...
+
+  container-test:
+    name: Container test stage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Build and run the go-test stage
+        run: docker build --target go-test -t iiiu-nav:test .
