@@ -18,6 +18,9 @@ export const messages = {
     privateCategory: '私有分类',
     adminView: '管理员视图',
     linkCount: (count: number) => `${count} 个链接`,
+    linkCardLabel: (name: string, description: string) =>
+      `${name}，${description}`,
+    linkLogoLabel: (label: string) => `${label} 标识`,
     totalSummary: (categories: number, links: number) =>
       `${categories} 个分类 · 当前 ${links} 个链接`,
     categoryLinks: (name: string) => `${name}分类链接`,
@@ -57,6 +60,7 @@ export const messages = {
     eyebrow: '管理工作台',
     badge: '管理员后台',
     title: '管理后台',
+    linkOrderLabel: (order: number) => `当前列表第 ${order} 位`,
     loginTitle: '进入管理后台',
     loginDescription: '登录后管理分类、链接、数据和站点设置。',
     loadingWorkspace: '正在载入管理后台',
@@ -97,7 +101,6 @@ export const messages = {
       `${categories} 个分类 · ${links} 个链接`,
     visitorTotal: '页面浏览次数',
     visitorTrend: '每日浏览趋势',
-    mockData: '模拟数据',
     dailyPV: '每日 PV',
     analyticsLoading: '正在读取浏览数据',
     analyticsLoadingDescription: '统计数据载入中。',

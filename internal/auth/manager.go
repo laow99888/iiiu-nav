@@ -23,6 +23,7 @@ type Store interface {
 	CreateSession(ctx context.Context, session Session) error
 	Session(ctx context.Context, tokenHash []byte) (Session, bool, error)
 	DeleteSession(ctx context.Context, tokenHash []byte) error
+	DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error)
 }
 
 type Config struct {
@@ -86,6 +87,10 @@ func (manager *Manager) Login(ctx context.Context, password string) (SessionToke
 	if err := manager.VerifyPassword(ctx, password); err != nil {
 		return SessionToken{}, err
 	}
+	// Best-effort housekeeping: sessions that expired without ever being
+	// presented again would otherwise linger until the next password change
+	// or restore. A failed sweep does not block the login.
+	_, _ = manager.store.DeleteExpiredSessions(ctx, manager.now())
 	return manager.createSession(ctx)
 }
 

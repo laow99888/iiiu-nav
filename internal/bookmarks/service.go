@@ -23,7 +23,7 @@ func New(repository Repository) *Service {
 
 func (service *Service) Preview(ctx context.Context, reader io.Reader, visibility navigation.Visibility) (Preview, error) {
 	if !validVisibility(visibility) {
-		return Preview{}, errorsInvalidOptions()
+		return Preview{}, ErrInvalidOptions
 	}
 	batch, err := Parse(reader)
 	if err != nil {
@@ -38,7 +38,7 @@ func (service *Service) Preview(ctx context.Context, reader io.Reader, visibilit
 
 func (service *Service) Commit(ctx context.Context, reader io.Reader, options ImportOptions) (CommitResult, error) {
 	if !validVisibility(options.Visibility) || !validStrategy(options.Duplicates) {
-		return CommitResult{}, errorsInvalidOptions()
+		return CommitResult{}, ErrInvalidOptions
 	}
 	batch, err := Parse(reader)
 	if err != nil {
@@ -118,4 +118,3 @@ func validVisibility(value navigation.Visibility) bool {
 func validStrategy(value DuplicateStrategy) bool {
 	return value == DuplicateSkip || value == DuplicateUpdate || value == DuplicateCreate
 }
-func errorsInvalidOptions() error { return fmt.Errorf("invalid bookmark import options") }

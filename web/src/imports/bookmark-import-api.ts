@@ -38,7 +38,9 @@ export async function previewBookmarks(
   file: File,
   visibility: ImportVisibility,
 ) {
-  return sendImport<ImportPreview>('/api/imports/preview', file, visibility);
+  return parseImportPreview(
+    await sendImport<unknown>('/api/imports/preview', file, visibility),
+  );
 }
 
 export async function importBookmarks(
@@ -46,12 +48,63 @@ export async function importBookmarks(
   visibility: ImportVisibility,
   duplicates: DuplicateStrategy,
 ) {
-  return sendImport<ImportResult>(
-    '/api/imports/commit',
-    file,
-    visibility,
-    duplicates,
+  return parseImportResult(
+    await sendImport<unknown>(
+      '/api/imports/commit',
+      file,
+      visibility,
+      duplicates,
+    ),
   );
+}
+
+function parseImportPreview(value: unknown): ImportPreview {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error('invalid import preview');
+  }
+  const { format, visibility, summary, categories } = value as Record<
+    string,
+    unknown
+  >;
+  if (
+    (format !== 'html' && format !== 'json') ||
+    (visibility !== 'public' && visibility !== 'private') ||
+    typeof summary !== 'object' ||
+    summary === null ||
+    !Array.isArray(categories)
+  ) {
+    throw new Error('invalid import preview');
+  }
+  const counts = summary as Record<string, unknown>;
+  for (const key of [
+    'new',
+    'duplicates',
+    'invalid',
+    'newCategories',
+    'existingCategories',
+  ]) {
+    if (typeof counts[key] !== 'number')
+      throw new Error('invalid import preview');
+  }
+  return value as ImportPreview;
+}
+
+function parseImportResult(value: unknown): ImportResult {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error('invalid import result');
+  }
+  const counts = value as Record<string, unknown>;
+  for (const key of [
+    'createdCategories',
+    'createdLinks',
+    'updatedLinks',
+    'skippedLinks',
+    'invalidLinks',
+  ]) {
+    if (typeof counts[key] !== 'number')
+      throw new Error('invalid import result');
+  }
+  return value as ImportResult;
 }
 
 async function sendImport<Result>(

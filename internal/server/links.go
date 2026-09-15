@@ -52,15 +52,13 @@ func (handler *linkHandler) create(writer http.ResponseWriter, request *http.Req
 	if !ok {
 		return
 	}
-	links, err := handler.store.LinksByCategory(request.Context(), input.CategoryID)
-	if err != nil {
+	link, err := handler.store.CreateLink(request.Context(), input)
+	if errors.Is(err, navigation.ErrCategoryNotFound) {
 		writeError(writer, http.StatusUnprocessableEntity, "link_category_invalid")
 		return
 	}
-	input.SortOrder = (len(links) + 1) * 10
-	link, err := handler.store.CreateLink(request.Context(), input)
 	if err != nil {
-		writeError(writer, http.StatusUnprocessableEntity, "link_create_failed")
+		writeError(writer, http.StatusInternalServerError, "link_create_failed")
 		return
 	}
 	writeJSON(writer, http.StatusCreated, linkResponseFromRecord(link))
@@ -81,11 +79,14 @@ func (handler *linkHandler) update(writer http.ResponseWriter, request *http.Req
 		return
 	}
 	link, err := handler.store.UpdateLink(request.Context(), id, input)
-	if errors.Is(err, navigation.ErrLinkNotFound) {
+	switch {
+	case errors.Is(err, navigation.ErrLinkNotFound):
 		writeError(writer, http.StatusNotFound, "link_not_found")
-	} else if err != nil {
-		writeError(writer, http.StatusUnprocessableEntity, "link_update_failed")
-	} else {
+	case errors.Is(err, navigation.ErrCategoryNotFound):
+		writeError(writer, http.StatusUnprocessableEntity, "link_category_invalid")
+	case err != nil:
+		writeError(writer, http.StatusInternalServerError, "link_update_failed")
+	default:
 		handler.removeUnreferencedLogo(request.Context(), previous.IconValue, link.IconValue)
 		writeJSON(writer, http.StatusOK, linkResponseFromRecord(link))
 	}

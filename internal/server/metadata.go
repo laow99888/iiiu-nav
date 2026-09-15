@@ -17,6 +17,7 @@ type metadataHandler struct {
 	links      LinkManager
 	recognizer *linkmeta.Recognizer
 	logos      *imagestore.Store
+	background context.Context
 }
 
 type recognitionRequest struct {
@@ -35,8 +36,8 @@ type bulkRecognitionResponse struct {
 	Failed  int `json:"failed"`
 }
 
-func registerMetadataRoutes(mux *http.ServeMux, authenticator Authenticator, links LinkManager, recognizer *linkmeta.Recognizer, logos *imagestore.Store) *metadataHandler {
-	handler := &metadataHandler{links: links, recognizer: recognizer, logos: logos}
+func registerMetadataRoutes(mux *http.ServeMux, authenticator Authenticator, links LinkManager, recognizer *linkmeta.Recognizer, logos *imagestore.Store, background context.Context) *metadataHandler {
+	handler := &metadataHandler{links: links, recognizer: recognizer, logos: logos, background: background}
 	mux.Handle("POST /api/metadata/recognize", RequireAdmin(authenticator, http.HandlerFunc(handler.recognize)))
 	mux.Handle("POST /api/links/{id}/refresh", RequireAdmin(authenticator, http.HandlerFunc(handler.refresh)))
 	mux.Handle("POST /api/links/refresh", RequireAdmin(authenticator, http.HandlerFunc(handler.refreshAll)))
@@ -51,7 +52,10 @@ func (handler *metadataHandler) refreshImported(ids []int64) {
 	ids = append([]int64(nil), ids...)
 	go func() {
 		for _, id := range ids {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			// Each link gets a bounded window derived from the cancellable
+			// background context, so shutdown aborts pending refreshes
+			// instead of querying a closing data store.
+			ctx, cancel := context.WithTimeout(handler.background, 10*time.Second)
 			link, err := handler.links.Link(ctx, id)
 			if err == nil {
 				_, _ = handler.refreshLink(ctx, link)

@@ -69,7 +69,9 @@ func NewFavicon(root string) *Store {
 func NewBackgrounds(root string) *Store {
 	return New(Config{
 		Root: root, PublicPrefix: BackgroundPrefix, MaxBytes: BackgroundMaxBytes,
-		MaxDimension: 8192, MaxPixels: 40_000_000, NormalizedSize: 2560,
+		// 16M pixels (~4K-class) bounds the transient decode spike to about
+		// 64 MiB of NRGBA memory; larger uploads are rejected before decode.
+		MaxDimension: 8192, MaxPixels: 16_000_000, NormalizedSize: 2560,
 		Formats: formats("png", "jpeg", "webp"),
 	})
 }

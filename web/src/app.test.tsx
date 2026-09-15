@@ -105,4 +105,35 @@ describe('应用导航接入', () => {
     }
     expect(screen.queryByText('管理员菜单')).not.toBeInTheDocument();
   });
+
+  it('把站点强调色写到文档根节点', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ...navigationBody,
+            site: {
+              name: 'iiiu-nav',
+              logoUrl: '',
+              faviconUrl: '',
+              accentColor: '#7a3b2e',
+              backgroundUrl: '',
+              backgroundOverlay: 40,
+              indexingEnabled: false,
+            },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+    render(<App />);
+
+    await screen.findByRole('link', { name: /公开链接/ });
+    await waitFor(() =>
+      expect(
+        document.documentElement.style.getPropertyValue('--site-accent'),
+      ).toBe('#7a3b2e'),
+    );
+  });
 });

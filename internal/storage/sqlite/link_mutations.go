@@ -25,6 +25,13 @@ func (store *Store) UpdateLink(ctx context.Context, id int64, input navigation.L
 	}
 	order := currentOrder
 	if currentCategoryID != input.CategoryID {
+		var categoryCount int
+		if err := transaction.QueryRowContext(ctx, `SELECT COUNT(*) FROM categories WHERE id = ?`, input.CategoryID).Scan(&categoryCount); err != nil {
+			return navigation.Link{}, fmt.Errorf("check link category: %w", err)
+		}
+		if categoryCount == 0 {
+			return navigation.Link{}, navigation.ErrCategoryNotFound
+		}
 		if err := transaction.QueryRowContext(ctx, `SELECT COALESCE(MAX(sort_order), 0) + 10 FROM links WHERE category_id = ?`, input.CategoryID).Scan(&order); err != nil {
 			return navigation.Link{}, fmt.Errorf("read target link order: %w", err)
 		}

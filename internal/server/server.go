@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"io/fs"
 	"log/slog"
@@ -38,6 +39,9 @@ type Config struct {
 	Updates     UpdateChecker
 	Version     string
 	Logger      *slog.Logger
+	// Background is canceled before the data store closes on shutdown so
+	// detached background work (post-import metadata refresh) stops cleanly.
+	Background context.Context
 }
 
 type healthResponse struct {
@@ -47,6 +51,14 @@ type healthResponse struct {
 }
 
 func New(config Config) http.Handler {
+	logger := config.Logger
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
+	}
+	background := config.Background
+	if background == nil {
+		background = context.Background()
+	}
 	mux := http.NewServeMux()
 	maintenance := &maintenanceGate{}
 	mux.HandleFunc("GET /healthz", func(writer http.ResponseWriter, _ *http.Request) {
@@ -82,14 +94,14 @@ func New(config Config) http.Handler {
 		registerUpdateRoutes(mux, config.Auth, config.Updates)
 	}
 	if config.Auth != nil && config.Categories != nil {
-		registerCategoryRoutes(mux, config.Auth, config.Categories, config.Links, config.Logos)
+		registerCategoryRoutes(mux, config.Auth, config.Categories, config.Links, config.Logos, logger)
 	}
 	if config.Auth != nil && config.Links != nil {
 		registerLinkRoutes(mux, config.Auth, config.Links, config.Logos)
 	}
 	var metadata *metadataHandler
 	if config.Auth != nil && config.Links != nil && config.Logos != nil && config.Metadata != nil {
-		metadata = registerMetadataRoutes(mux, config.Auth, config.Links, config.Metadata, config.Logos)
+		metadata = registerMetadataRoutes(mux, config.Auth, config.Links, config.Metadata, config.Logos, background)
 	}
 	if config.Auth != nil && config.Imports != nil {
 		registerBookmarkRoutes(mux, config.Auth, config.Imports, metadata)
@@ -104,7 +116,7 @@ func New(config Config) http.Handler {
 		registerImageRoutes(mux, config.Logos)
 	}
 	if config.Auth != nil && config.Settings != nil && config.SiteImages != nil && config.Favicons != nil && config.Backgrounds != nil {
-		registerSiteSettingsRoutes(mux, config.Auth, config.Settings, config.SiteImages, config.Favicons, config.Backgrounds)
+		registerSiteSettingsRoutes(mux, config.Auth, config.Settings, config.SiteImages, config.Favicons, config.Backgrounds, logger)
 		registerImageRoutes(mux, config.SiteImages)
 		registerImageRoutes(mux, config.Backgrounds)
 	}
@@ -126,10 +138,7 @@ func New(config Config) http.Handler {
 	}
 
 	handler := securityHeaders(sameOriginOnly(maintenanceRequests(maintenance, indexingHeaders(config.Settings, mux))))
-	if config.Logger != nil {
-		handler = logServerErrors(config.Logger, handler)
-	}
-	return handler
+	return logServerErrors(logger, handler)
 }
 
 // clearResponseDeadline exempts one long-running request from the server-wide

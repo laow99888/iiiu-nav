@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,10 +18,11 @@ type siteSettingsHandler struct {
 	siteImages  *imagestore.Store
 	favicons    *imagestore.Store
 	backgrounds *imagestore.Store
+	logger      *slog.Logger
 }
 
-func registerSiteSettingsRoutes(mux *http.ServeMux, authenticator Authenticator, store SettingsStore, siteImages, favicons, backgrounds *imagestore.Store) {
-	handler := &siteSettingsHandler{store: store, siteImages: siteImages, favicons: favicons, backgrounds: backgrounds}
+func registerSiteSettingsRoutes(mux *http.ServeMux, authenticator Authenticator, store SettingsStore, siteImages, favicons, backgrounds *imagestore.Store, logger *slog.Logger) {
+	handler := &siteSettingsHandler{store: store, siteImages: siteImages, favicons: favicons, backgrounds: backgrounds, logger: logger}
 	mux.Handle("PUT /api/settings/site", RequireAdmin(authenticator, http.HandlerFunc(handler.update)))
 	mux.Handle("POST /api/settings/site/logo", RequireAdmin(authenticator, http.HandlerFunc(handler.uploadLogo)))
 	mux.Handle("POST /api/settings/site/favicon", RequireAdmin(authenticator, http.HandlerFunc(handler.uploadFavicon)))
@@ -91,12 +93,19 @@ func (handler *siteSettingsHandler) cleanReplaced(previous, next siteconfig.Sett
 		if path == "" {
 			continue
 		}
-		if _, keep := retained[path]; !keep {
-			_ = store.Remove(path)
+		if _, keep := retained[path]; keep {
+			continue
+		}
+		if err := store.Remove(path); err != nil {
+			handler.logger.Warn("replaced site image removal failed", "path", path, "error", err)
 		}
 	}
-	_ = handler.siteImages.Prune(retained)
-	_ = handler.backgrounds.Prune(retained)
+	if err := handler.siteImages.Prune(retained); err != nil {
+		handler.logger.Warn("site image prune failed", "error", err)
+	}
+	if err := handler.backgrounds.Prune(retained); err != nil {
+		handler.logger.Warn("background prune failed", "error", err)
+	}
 }
 
 func (handler *siteSettingsHandler) robots(writer http.ResponseWriter, request *http.Request) {

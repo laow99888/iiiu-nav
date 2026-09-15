@@ -19,7 +19,10 @@ function LinkCard({
         href={link.url}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`${link.name}，${link.description}`}
+        aria-label={messages.navigation.linkCardLabel(
+          link.name,
+          link.description,
+        )}
       >
         <LinkLogo
           label={link.name}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 
 import { messages } from '../i18n/messages';
 import { Archive, Download, Plus, Trash2 } from '../ui/icons/interface-icons';
@@ -25,15 +25,21 @@ export function BackupDrawer({ onClose, onRestored, open }: Props) {
   const [deleting, setDeleting] = useState<BackupInfo | null>(null);
   const [error, setError] = useState<'load' | 'create' | null>(null);
   const toast = useToast();
+  // Guards against a stale listing landing after a newer one and clobbering it.
+  const loadRef = useRef(0);
   const load = async () => {
+    const loadId = ++loadRef.current;
     setLoading(true);
     setError(null);
     try {
-      setBackups(await listBackups());
+      const list = await listBackups();
+      if (loadId !== loadRef.current) return;
+      setBackups(list);
     } catch {
+      if (loadId !== loadRef.current) return;
       setError('load');
     } finally {
-      setLoading(false);
+      if (loadId === loadRef.current) setLoading(false);
     }
   };
   useEffect(() => {

@@ -74,7 +74,10 @@ function NavigationPageContent({
   } | null>(null);
   const [linkOrderOpen, setLinkOrderOpen] = useState(false);
   const { mode, setMode } = useThemeMode();
-  const resolvedSite = site ?? { ...defaultSiteSettings, name: siteName };
+  const resolvedSite = useMemo(
+    () => site ?? { ...defaultSiteSettings, name: siteName },
+    [site, siteName],
+  );
   useEffect(() => {
     document.title = resolvedSite.name;
     let icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
@@ -102,7 +105,6 @@ function NavigationPageContent({
       class={`navigation-shell${resolvedSite.backgroundUrl ? ' has-background' : ''}`}
       style={
         {
-          '--site-accent': resolvedSite.accentColor,
           '--site-background': resolvedSite.backgroundUrl
             ? `url("${resolvedSite.backgroundUrl}")`
             : 'none',

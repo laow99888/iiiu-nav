@@ -9,6 +9,31 @@ import (
 	"time"
 )
 
+func TestLoginRemovesExpiredSessions(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	now := time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)
+	store := newMemoryStore()
+	manager := newTestManager(t, store, func() time.Time { return now })
+	bootstrapMemoryAdmin(t, manager, store, "correct horse battery staple")
+
+	expired := Session{TokenHash: []byte("expired"), ExpiresAt: now.Add(-time.Hour), CreatedAt: now.Add(-2 * time.Hour)}
+	store.sessions[string(expired.TokenHash)] = expired
+	live := Session{TokenHash: []byte("live"), ExpiresAt: now.Add(time.Hour), CreatedAt: now}
+	store.sessions[string(live.TokenHash)] = live
+
+	if _, err := manager.Login(ctx, "correct horse battery staple"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	if _, found := store.sessions["expired"]; found {
+		t.Fatal("expected the expired session to be removed on login")
+	}
+	if _, found := store.sessions["live"]; !found {
+		t.Fatal("expected the live session to survive the sweep")
+	}
+}
+
 func TestBootstrapReadsPasswordFileOnlyWhenRequired(t *testing.T) {
 	t.Parallel()
 
@@ -196,6 +221,17 @@ func (store *memoryStore) Session(_ context.Context, tokenHash []byte) (Session,
 func (store *memoryStore) DeleteSession(_ context.Context, tokenHash []byte) error {
 	delete(store.sessions, string(tokenHash))
 	return nil
+}
+
+func (store *memoryStore) DeleteExpiredSessions(_ context.Context, now time.Time) (int64, error) {
+	var deleted int64
+	for tokenHash, session := range store.sessions {
+		if !session.ExpiresAt.After(now) {
+			delete(store.sessions, tokenHash)
+			deleted++
+		}
+	}
+	return deleted, nil
 }
 
 type sequenceReader struct {

@@ -73,7 +73,7 @@ export function CategoryNavigation({
             </span>
             <span
               class="category-nav__count"
-              aria-label={`${item.count} 个链接`}
+              aria-label={messages.navigation.linkCount(item.count)}
             >
               {item.count}
             </span>

@@ -3,7 +3,6 @@ package restore
 import (
 	"context"
 	"errors"
-	"io"
 
 	"iiiu-nav/internal/backup"
 )
@@ -44,8 +43,4 @@ type Config struct {
 
 type Result struct {
 	PreRestoreBackup backup.Info `json:"preRestoreBackup"`
-}
-
-type ReaderAt interface {
-	io.ReaderAt
 }

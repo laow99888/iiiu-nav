@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -40,13 +41,14 @@ type categoryOrderRequest struct {
 }
 
 type categoryHandler struct {
-	store CategoryManager
-	links LinkManager
-	logos *imagestore.Store
+	store  CategoryManager
+	links  LinkManager
+	logos  *imagestore.Store
+	logger *slog.Logger
 }
 
-func registerCategoryRoutes(mux *http.ServeMux, authenticator Authenticator, store CategoryManager, links LinkManager, logos *imagestore.Store) {
-	handler := &categoryHandler{store: store, links: links, logos: logos}
+func registerCategoryRoutes(mux *http.ServeMux, authenticator Authenticator, store CategoryManager, links LinkManager, logos *imagestore.Store, logger *slog.Logger) {
+	handler := &categoryHandler{store: store, links: links, logos: logos, logger: logger}
 	mux.Handle("POST /api/categories", RequireAdmin(authenticator, http.HandlerFunc(handler.create)))
 	mux.Handle("PUT /api/categories/{id}", RequireAdmin(authenticator, http.HandlerFunc(handler.update)))
 	mux.Handle("DELETE /api/categories/{id}", RequireAdmin(authenticator, http.HandlerFunc(handler.delete)))
@@ -58,17 +60,12 @@ func (handler *categoryHandler) create(writer http.ResponseWriter, request *http
 	if !ok {
 		return
 	}
-	categories, err := handler.store.Categories(request.Context())
-	if err != nil {
-		writeError(writer, http.StatusInternalServerError, "categories_read_failed")
-		return
-	}
-	input.SortOrder = (len(categories) + 1) * 10
-	input.Slug, err = newCategorySlug()
+	slug, err := newCategorySlug()
 	if err != nil {
 		writeError(writer, http.StatusInternalServerError, "category_slug_failed")
 		return
 	}
+	input.Slug = slug
 	category, err := handler.store.CreateCategory(request.Context(), input)
 	if err != nil {
 		writeError(writer, http.StatusInternalServerError, "category_create_failed")
@@ -118,7 +115,11 @@ func (handler *categoryHandler) delete(writer http.ResponseWriter, request *http
 	}
 	var deletedLinks []navigation.Link
 	if mode == navigation.CategoryDeleteLinks && handler.links != nil && handler.logos != nil {
-		deletedLinks, _ = handler.links.LinksByCategory(request.Context(), id)
+		links, listErr := handler.links.LinksByCategory(request.Context(), id)
+		if listErr != nil {
+			handler.logger.Warn("category logo cleanup skipped", "category_id", id, "error", listErr)
+		}
+		deletedLinks = links
 	}
 	err := handler.store.DeleteCategory(request.Context(), id, mode, targetID)
 	switch {

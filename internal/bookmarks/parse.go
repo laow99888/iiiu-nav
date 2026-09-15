@@ -21,6 +21,8 @@ var (
 	ErrEmptyImport        = errors.New("import file is empty")
 	ErrUnsupportedFormat  = errors.New("unsupported bookmark file format")
 	ErrUnsupportedCharset = errors.New("bookmark file declares an unsupported character encoding")
+	ErrImportTooLarge     = errors.New("bookmark import exceeds the size limit")
+	ErrInvalidOptions     = errors.New("invalid bookmark import options")
 )
 
 func Parse(reader io.Reader) (Batch, error) {
@@ -47,7 +49,7 @@ func readBounded(reader io.Reader, limit int64) ([]byte, error) {
 		return nil, fmt.Errorf("read bookmark import: %w", err)
 	}
 	if int64(len(content)) > limit {
-		return nil, fmt.Errorf("bookmark import exceeds %d MiB", limit>>20)
+		return nil, fmt.Errorf("%w: larger than %d MiB", ErrImportTooLarge, limit>>20)
 	}
 	return content, nil
 }

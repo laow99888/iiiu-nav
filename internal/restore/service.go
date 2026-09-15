@@ -34,7 +34,7 @@ func New(config Config) (*Service, error) {
 	return &Service{config: config}, nil
 }
 
-func (service *Service) Restore(ctx context.Context, source ReaderAt, compressedSize int64) (Result, error) {
+func (service *Service) Restore(ctx context.Context, source io.ReaderAt, compressedSize int64) (Result, error) {
 	if compressedSize <= 0 || compressedSize > MaxCompressedBytes {
 		return Result{}, ErrArchiveTooLarge
 	}

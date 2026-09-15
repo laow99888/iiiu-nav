@@ -57,8 +57,19 @@ type rowScanner interface {
 }
 
 func (store *Store) CreateCategory(ctx context.Context, input navigation.CategoryInput) (navigation.Category, error) {
+	transaction, err := store.database.BeginTx(ctx, nil)
+	if err != nil {
+		return navigation.Category{}, fmt.Errorf("begin category create: %w", err)
+	}
+	defer func() { _ = transaction.Rollback() }()
+	order := input.SortOrder
+	if order <= 0 {
+		if err := transaction.QueryRowContext(ctx, `SELECT COALESCE(MAX(sort_order), 0) + 10 FROM categories`).Scan(&order); err != nil {
+			return navigation.Category{}, fmt.Errorf("read created category order: %w", err)
+		}
+	}
 	now := time.Now().UTC()
-	result, err := store.database.ExecContext(
+	result, err := transaction.ExecContext(
 		ctx,
 		`INSERT INTO categories
             (name, slug, icon_name, visibility, sort_order, created_at, updated_at)
@@ -67,7 +78,7 @@ func (store *Store) CreateCategory(ctx context.Context, input navigation.Categor
 		input.Slug,
 		input.IconName,
 		input.Visibility,
-		input.SortOrder,
+		order,
 		timestamp(now),
 		timestamp(now),
 	)
@@ -79,13 +90,16 @@ func (store *Store) CreateCategory(ctx context.Context, input navigation.Categor
 	if err != nil {
 		return navigation.Category{}, fmt.Errorf("read created category id: %w", err)
 	}
+	if err := transaction.Commit(); err != nil {
+		return navigation.Category{}, fmt.Errorf("commit category create: %w", err)
+	}
 	return navigation.Category{
 		ID:         id,
 		Name:       input.Name,
 		Slug:       input.Slug,
 		IconName:   input.IconName,
 		Visibility: input.Visibility,
-		SortOrder:  input.SortOrder,
+		SortOrder:  order,
 		CreatedAt:  now,
 		UpdatedAt:  now,
 	}, nil
@@ -118,8 +132,26 @@ func (store *Store) Categories(ctx context.Context) ([]navigation.Category, erro
 }
 
 func (store *Store) CreateLink(ctx context.Context, input navigation.LinkInput) (navigation.Link, error) {
+	transaction, err := store.database.BeginTx(ctx, nil)
+	if err != nil {
+		return navigation.Link{}, fmt.Errorf("begin link create: %w", err)
+	}
+	defer func() { _ = transaction.Rollback() }()
+	var categoryCount int
+	if err := transaction.QueryRowContext(ctx, `SELECT COUNT(*) FROM categories WHERE id = ?`, input.CategoryID).Scan(&categoryCount); err != nil {
+		return navigation.Link{}, fmt.Errorf("check link category: %w", err)
+	}
+	if categoryCount == 0 {
+		return navigation.Link{}, navigation.ErrCategoryNotFound
+	}
+	order := input.SortOrder
+	if order <= 0 {
+		if err := transaction.QueryRowContext(ctx, `SELECT COALESCE(MAX(sort_order), 0) + 10 FROM links WHERE category_id = ?`, input.CategoryID).Scan(&order); err != nil {
+			return navigation.Link{}, fmt.Errorf("read created link order: %w", err)
+		}
+	}
 	now := time.Now().UTC()
-	result, err := store.database.ExecContext(
+	result, err := transaction.ExecContext(
 		ctx,
 		`INSERT INTO links
             (category_id, name, description, url, icon_source, icon_value, sort_order, created_at, updated_at)
@@ -130,7 +162,7 @@ func (store *Store) CreateLink(ctx context.Context, input navigation.LinkInput) 
 		input.URL,
 		input.IconSource,
 		input.IconValue,
-		input.SortOrder,
+		order,
 		timestamp(now),
 		timestamp(now),
 	)
@@ -142,6 +174,9 @@ func (store *Store) CreateLink(ctx context.Context, input navigation.LinkInput) 
 	if err != nil {
 		return navigation.Link{}, fmt.Errorf("read created link id: %w", err)
 	}
+	if err := transaction.Commit(); err != nil {
+		return navigation.Link{}, fmt.Errorf("commit link create: %w", err)
+	}
 	return navigation.Link{
 		ID:          id,
 		CategoryID:  input.CategoryID,
@@ -150,7 +185,7 @@ func (store *Store) CreateLink(ctx context.Context, input navigation.LinkInput) 
 		URL:         input.URL,
 		IconSource:  input.IconSource,
 		IconValue:   input.IconValue,
-		SortOrder:   input.SortOrder,
+		SortOrder:   order,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}, nil

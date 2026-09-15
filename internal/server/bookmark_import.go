@@ -100,9 +100,9 @@ func writeImportError(writer http.ResponseWriter, err error) {
 		writeError(writer, http.StatusUnprocessableEntity, "bookmark_charset_unsupported")
 	case errors.Is(err, bookmarks.ErrEmptyImport), errors.Is(err, bookmarks.ErrUnsupportedFormat):
 		writeError(writer, http.StatusUnprocessableEntity, "bookmark_format_invalid")
-	case strings.Contains(err.Error(), "exceeds"):
+	case errors.Is(err, bookmarks.ErrImportTooLarge):
 		writeError(writer, http.StatusRequestEntityTooLarge, "bookmark_import_too_large")
-	case strings.Contains(err.Error(), "options"):
+	case errors.Is(err, bookmarks.ErrInvalidOptions):
 		writeError(writer, http.StatusUnprocessableEntity, "bookmark_options_invalid")
 	default:
 		writeError(writer, http.StatusUnprocessableEntity, "bookmark_import_invalid")

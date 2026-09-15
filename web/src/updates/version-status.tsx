@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 
 import { messages } from '../i18n/messages';
 import { ArrowUpRight, RefreshCw } from '../ui/icons/interface-icons';
@@ -13,18 +13,23 @@ type ViewState =
 export function VersionStatus() {
   const [view, setView] = useState<ViewState>({ kind: 'loading' });
   const [refreshing, setRefreshing] = useState(false);
+  // Guards against a slow cached response landing after a forced re-check and
+  // overwriting fresher state.
+  const requestRef = useRef(0);
 
   const load = useCallback(async (force: boolean, signal?: AbortSignal) => {
+    const requestId = ++requestRef.current;
     if (force) setRefreshing(true);
     try {
       const status = await fetchUpdateStatus(force, signal);
+      if (requestId !== requestRef.current) return;
       setView({ kind: 'ready', status });
     } catch (error) {
-      if (!(error instanceof DOMException && error.name === 'AbortError')) {
-        setView({ kind: 'error' });
-      }
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (requestId !== requestRef.current) return;
+      setView({ kind: 'error' });
     } finally {
-      if (force) setRefreshing(false);
+      if (force && requestId === requestRef.current) setRefreshing(false);
     }
   }, []);
 

@@ -1,4 +1,5 @@
 import type { LogoTone } from './types';
+import { messages } from '../i18n/messages';
 import { useEffect, useState } from 'preact/hooks';
 
 type LinkLogoProps = {
@@ -14,7 +15,7 @@ export function LinkLogo({ label, text, tone, url = null }: LinkLogoProps) {
   return (
     <span
       class={`link-logo link-logo--${tone}`}
-      aria-label={`${label} 标识`}
+      aria-label={messages.navigation.linkLogoLabel(label)}
       role="img"
     >
       {url && !imageFailed ? (

@@ -92,7 +92,7 @@ export function AdminLinkTable({
                   <td>
                     <span
                       class="admin-link-order"
-                      aria-label={`当前列表第 ${order} 位`}
+                      aria-label={messages.admin.linkOrderLabel(order)}
                     >
                       {String(order).padStart(2, '0')}
                     </span>

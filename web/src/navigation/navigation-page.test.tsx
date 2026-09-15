@@ -110,7 +110,9 @@ describe('导航页面', () => {
     );
     const shell = document.querySelector('.navigation-shell');
     expect(shell).toHaveClass('has-background');
-    expect(shell).toHaveStyle('--site-accent: #2f6f55');
+    // 强调色统一由 App 写到文档根节点（app.test.tsx 覆盖）；shell 内联覆盖
+    // 无法让 :root 的派生 token 重算，这里防止该缺陷回归。
+    expect(shell?.getAttribute('style') ?? '').not.toContain('--site-accent');
     expect(screen.getAllByRole('img', { hidden: true }).length).toBeGreaterThan(
       1,
     );
