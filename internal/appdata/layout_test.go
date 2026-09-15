@@ -20,6 +20,11 @@ func TestPrepareCreatesPersistentLayout(t *testing.T) {
 		t.Fatalf("expected database path %q, got %q", wantDatabase, layout.Database)
 	}
 
+	wantTemp := filepath.Join(root, "tmp")
+	if layout.Temp != wantTemp {
+		t.Fatalf("expected temp path %q, got %q", wantTemp, layout.Temp)
+	}
+
 	for _, directory := range []string{
 		layout.Root,
 		layout.Uploads,
@@ -27,6 +32,7 @@ func TestPrepareCreatesPersistentLayout(t *testing.T) {
 		layout.Backgrounds,
 		layout.Site,
 		layout.Backups,
+		layout.Temp,
 	} {
 		info, err := os.Stat(directory)
 		if err != nil {

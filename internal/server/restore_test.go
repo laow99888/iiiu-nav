@@ -68,6 +68,21 @@ func TestRestoreEndpointSwapsDataAndClearsSession(t *testing.T) {
 	}
 }
 
+func TestRestoreEndpointCompletesWhenClientDisconnects(t *testing.T) {
+	t.Parallel()
+	service := newHTTPRestoreService(t)
+	handler := New(Config{Auth: &importAuthenticator{}, Restores: service, Reverify: &restoreVerifier{}})
+	request := restoreRequest(t, restoreHTTPArchive(t), "correct password", "RESTORE", true)
+	canceled, cancel := context.WithCancel(request.Context())
+	cancel()
+	request = request.WithContext(canceled)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "preRestoreBackup") {
+		t.Fatalf("expected restore to complete despite canceled request context: %d %s", response.Code, response.Body.String())
+	}
+}
+
 func newHTTPRestoreService(t *testing.T) *restore.Service {
 	t.Helper()
 	root := t.TempDir()
@@ -148,8 +163,10 @@ func (verifier *restoreVerifier) VerifyPassword(context.Context, string) error {
 
 type restoreLifecycle struct{}
 
-func (*restoreLifecycle) Close() error                 { return nil }
-func (*restoreLifecycle) Reopen(context.Context) error { return nil }
+func (*restoreLifecycle) Close() error { return nil }
+
+// Reopen reports a canceled context like the real SQLite reopen would.
+func (*restoreLifecycle) Reopen(ctx context.Context) error { return ctx.Err() }
 
 type restoreBackupCreator struct{}
 

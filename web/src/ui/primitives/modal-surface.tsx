@@ -11,6 +11,11 @@ const focusableSelector = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 
+// Stacked surfaces (a delete dialog over an editing drawer) each listen on the
+// document, so only the most recently opened one may react to Escape.
+const openSurfaceIDs: number[] = [];
+let nextSurfaceID = 1;
+
 type ModalSurfaceProps = {
   children: ComponentChildren;
   class?: string;
@@ -34,6 +39,8 @@ export function ModalSurface({
   }, [onClose]);
 
   useLayoutEffect(() => {
+    const surfaceID = nextSurfaceID++;
+    openSurfaceIDs.push(surfaceID);
     const previousFocus = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -44,8 +51,10 @@ export function ModalSurface({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        event.preventDefault();
-        onCloseRef.current();
+        if (openSurfaceIDs[openSurfaceIDs.length - 1] === surfaceID) {
+          event.preventDefault();
+          onCloseRef.current();
+        }
         return;
       }
 
@@ -75,6 +84,10 @@ export function ModalSurface({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => {
+      const index = openSurfaceIDs.indexOf(surfaceID);
+      if (index >= 0) {
+        openSurfaceIDs.splice(index, 1);
+      }
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = previousOverflow;
       previousFocus?.focus();

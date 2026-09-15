@@ -33,6 +33,12 @@ func serve(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	for _, action := range data.recovered {
+		logger.Warn("recovering interrupted restore", "detail", action)
+	}
+	if err := useProcessTempDir(data.layout.Temp); err != nil {
+		return commandError("prepare temporary directory", err)
+	}
 	defer func() {
 		if err := data.Close(); err != nil {
 			logger.Error("database close failed", "error", err)
@@ -67,7 +73,7 @@ func serve(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("data store ready", "root", data.layout.Root, "application_version", version, "schema_version", schemaVersion)
+	logger.Info("data store ready", "root", data.layout.Root, "application_version", version, "schema_version", schemaVersion, "temp_dir", data.layout.Temp)
 	if data.upgrade.Backup != nil {
 		logger.Info("database migration completed", "application_version", version, "from_schema", data.upgrade.FromVersion, "to_schema", data.upgrade.ToVersion, "pre_migration_backup", data.upgrade.Backup.Name)
 	}
@@ -109,6 +115,7 @@ func serve(logger *slog.Logger) error {
 			Analytics:   pageViews,
 			Updates:     updates,
 			Version:     version,
+			Logger:      logger,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

@@ -65,6 +65,7 @@ func (handler *bookmarkImportHandler) commit(writer http.ResponseWriter, request
 }
 
 func importUpload(writer http.ResponseWriter, request *http.Request) (multipart.File, navigation.Visibility, bool) {
+	clearResponseDeadline(writer)
 	request.Body = http.MaxBytesReader(writer, request.Body, bookmarks.MaxImportBytes+importRequestOverhead)
 	if err := request.ParseMultipartForm(1 << 20); err != nil {
 		var maxBytesError *http.MaxBytesError

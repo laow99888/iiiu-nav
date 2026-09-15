@@ -17,6 +17,7 @@ type Layout struct {
 	Backgrounds string
 	Site        string
 	Backups     string
+	Temp        string
 }
 
 func Prepare(root string) (Layout, error) {
@@ -37,6 +38,7 @@ func Prepare(root string) (Layout, error) {
 		Backgrounds: filepath.Join(absoluteRoot, "uploads", "backgrounds"),
 		Site:        filepath.Join(absoluteRoot, "uploads", "site"),
 		Backups:     filepath.Join(absoluteRoot, "backups"),
+		Temp:        filepath.Join(absoluteRoot, "tmp"),
 	}
 
 	for _, directory := range []string{
@@ -46,6 +48,7 @@ func Prepare(root string) (Layout, error) {
 		layout.Backgrounds,
 		layout.Site,
 		layout.Backups,
+		layout.Temp,
 	} {
 		if err := os.MkdirAll(directory, 0o700); err != nil {
 			return Layout{}, fmt.Errorf("create data directory %q: %w", directory, err)

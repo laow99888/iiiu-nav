@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/preact';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'preact/hooks';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Button } from './button';
@@ -29,6 +30,40 @@ describe('浮层控件', () => {
     );
     await user.keyboard('{Escape}');
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('堆叠浮层时 Escape 只关闭最上层', async () => {
+    const user = userEvent.setup();
+    const events: string[] = [];
+
+    function Harness() {
+      const [stage, setStage] = useState<'both' | 'drawer' | 'none'>('both');
+      const close = (label: string) => {
+        events.push(label);
+        setStage((current) => (current === 'both' ? 'drawer' : 'none'));
+      };
+      return (
+        <>
+          {stage !== 'none' && (
+            <Drawer open title="编辑链接" onClose={() => close('drawer')}>
+              表单内容
+            </Drawer>
+          )}
+          {stage === 'both' && (
+            <Dialog open title="删除链接" onClose={() => close('dialog')}>
+              <Button>确认</Button>
+            </Dialog>
+          )}
+        </>
+      );
+    }
+
+    render(<Harness />);
+    await user.keyboard('{Escape}');
+    expect(events).toEqual(['dialog']);
+
+    await user.keyboard('{Escape}');
+    expect(events).toEqual(['dialog', 'drawer']);
   });
 
   it('抽屉呈现标题并可用关闭按钮退出', async () => {

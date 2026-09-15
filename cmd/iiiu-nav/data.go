@@ -2,17 +2,21 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 
 	"iiiu-nav/internal/appdata"
 	"iiiu-nav/internal/backup"
+	"iiiu-nav/internal/restore"
 	storage "iiiu-nav/internal/storage/sqlite"
 )
 
 type applicationData struct {
-	layout  appdata.Layout
-	store   *storage.Store
-	upgrade upgradeResult
+	layout    appdata.Layout
+	store     *storage.Store
+	upgrade   upgradeResult
+	recovered []string
 }
 
 type upgradeResult struct {
@@ -27,7 +31,16 @@ func openApplicationData(ctx context.Context) (*applicationData, error) {
 	if err != nil {
 		return nil, err
 	}
-	return openPreparedApplicationData(ctx, layout, version)
+	recovered, err := restore.RecoverInterrupted(layout.Root)
+	if err != nil {
+		return nil, commandError("recover interrupted restore", err)
+	}
+	state, err := openPreparedApplicationData(ctx, layout, version)
+	if err != nil {
+		return nil, err
+	}
+	state.recovered = recovered
+	return state, nil
 }
 
 func openPreparedApplicationData(ctx context.Context, layout appdata.Layout, applicationVersion string) (*applicationData, error) {
@@ -72,6 +85,21 @@ func openPreparedApplicationData(ctx context.Context, layout appdata.Layout, app
 func (data *applicationData) Close() error {
 	if err := data.store.Close(); err != nil {
 		return fmt.Errorf("close application data: %w", err)
+	}
+	return nil
+}
+
+// useProcessTempDir redirects process temporary files (multipart upload
+// spooling, archive staging) onto the persistent data volume so large uploads
+// do not depend on the small tmpfs of the hardened container.
+func useProcessTempDir(directory string) error {
+	if directory == "" {
+		return errors.New("temporary directory path is required")
+	}
+	for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+		if err := os.Setenv(name, directory); err != nil {
+			return fmt.Errorf("set %s: %w", name, err)
+		}
 	}
 	return nil
 }

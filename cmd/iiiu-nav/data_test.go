@@ -133,6 +133,76 @@ func TestOpenPreparedApplicationDataPreservesBackupAndDatabaseWhenMigrationFails
 	}
 }
 
+func TestOpenApplicationDataRecoversInterruptedRestore(t *testing.T) {
+	ctx := context.Background()
+	layout, err := appdata.Prepare(filepath.Join(t.TempDir(), "data"))
+	if err != nil {
+		t.Fatalf("prepare data layout: %v", err)
+	}
+	referencePath := filepath.Join(t.TempDir(), "reference.db")
+	reference, err := storage.Open(ctx, referencePath)
+	if err != nil {
+		t.Fatalf("create reference database: %v", err)
+	}
+	if err := reference.Close(); err != nil {
+		t.Fatalf("close reference database: %v", err)
+	}
+	restored, err := os.ReadFile(referencePath)
+	if err != nil {
+		t.Fatalf("read reference database: %v", err)
+	}
+	rollback := filepath.Join(layout.Root, ".restore-rollback-test")
+	if err := os.MkdirAll(rollback, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(rollback, "nav.db"), restored, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("IIU_NAV_DATA_DIR", layout.Root)
+
+	data, err := openApplicationData(ctx)
+	if err != nil {
+		t.Fatalf("open application data after interrupted restore: %v", err)
+	}
+	defer data.Close()
+	if len(data.recovered) != 1 || !strings.Contains(data.recovered[0], "restored the previous database") {
+		t.Fatalf("expected one database recovery action, got %v", data.recovered)
+	}
+	version, err := data.store.SchemaVersion(ctx)
+	if err != nil || version != storage.LatestSchemaVersion {
+		t.Fatalf("expected recovered database with schema %d, got %d: %v", storage.LatestSchemaVersion, version, err)
+	}
+	if _, err := os.Stat(rollback); !os.IsNotExist(err) {
+		t.Fatalf("expected the rollback directory to be reconciled, got %v", err)
+	}
+}
+
+func TestUseProcessTempDirPointsProcessTempUnderData(t *testing.T) {
+	layout, err := appdata.Prepare(filepath.Join(t.TempDir(), "data"))
+	if err != nil {
+		t.Fatalf("prepare data layout: %v", err)
+	}
+	previous := make(map[string]string, 3)
+	for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+		previous[name] = os.Getenv(name)
+	}
+	t.Cleanup(func() {
+		for name, value := range previous {
+			_ = os.Setenv(name, value)
+		}
+	})
+
+	if err := useProcessTempDir(layout.Temp); err != nil {
+		t.Fatalf("use process temp dir: %v", err)
+	}
+	if got := os.TempDir(); got != layout.Temp {
+		t.Fatalf("expected process temp dir %q, got %q", layout.Temp, got)
+	}
+	if err := useProcessTempDir(""); err == nil {
+		t.Fatal("expected an empty temp dir to fail")
+	}
+}
+
 func makeSchemaOneDatabase(t *testing.T, ctx context.Context, path string) {
 	t.Helper()
 	store, err := storage.Open(ctx, path)

@@ -30,6 +30,7 @@ func (handler *backupHandler) list(writer http.ResponseWriter, _ *http.Request) 
 }
 
 func (handler *backupHandler) create(writer http.ResponseWriter, request *http.Request) {
+	clearResponseDeadline(writer)
 	created, err := handler.service.Create(request.Context())
 	if errors.Is(err, backup.ErrInsufficientSpace) {
 		writeError(writer, http.StatusInsufficientStorage, "backup_space_insufficient")

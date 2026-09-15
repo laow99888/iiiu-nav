@@ -3,11 +3,13 @@ package server
 import (
 	"encoding/json"
 	"io/fs"
+	"log/slog"
 	"mime"
 	"net/http"
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"iiiu-nav/internal/backup"
 	"iiiu-nav/internal/bookmarks"
@@ -35,6 +37,7 @@ type Config struct {
 	Analytics   PageViewAnalytics
 	Updates     UpdateChecker
 	Version     string
+	Logger      *slog.Logger
 }
 
 type healthResponse struct {
@@ -122,7 +125,50 @@ func New(config Config) http.Handler {
 		mux.Handle("/", frontend)
 	}
 
-	return securityHeaders(sameOriginOnly(maintenanceRequests(maintenance, indexingHeaders(config.Settings, mux))))
+	handler := securityHeaders(sameOriginOnly(maintenanceRequests(maintenance, indexingHeaders(config.Settings, mux))))
+	if config.Logger != nil {
+		handler = logServerErrors(config.Logger, handler)
+	}
+	return handler
+}
+
+// clearResponseDeadline exempts one long-running request from the server-wide
+// read and write timeouts, which would otherwise drop the connection in the
+// middle of large uploads, restores, or bulk refreshes.
+func clearResponseDeadline(writer http.ResponseWriter) {
+	controller := http.NewResponseController(writer)
+	_ = controller.SetReadDeadline(time.Time{})
+	_ = controller.SetWriteDeadline(time.Time{})
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (record *statusRecorder) WriteHeader(status int) {
+	record.status = status
+	record.ResponseWriter.WriteHeader(status)
+}
+
+// Unwrap keeps http.NewResponseController working through this wrapper so
+// handlers can still manage per-request deadlines.
+func (record *statusRecorder) Unwrap() http.ResponseWriter {
+	return record.ResponseWriter
+}
+
+func logServerErrors(logger *slog.Logger, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		record := &statusRecorder{ResponseWriter: writer, status: http.StatusOK}
+		next.ServeHTTP(record, request)
+		if record.status >= http.StatusInternalServerError {
+			logger.Warn("request failed",
+				"method", request.Method,
+				"path", request.URL.Path,
+				"status", record.status,
+			)
+		}
+	})
 }
 
 func spaHandler(assets fs.FS) http.Handler {

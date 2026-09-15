@@ -28,6 +28,7 @@ func registerRestoreRoutes(mux *http.ServeMux, authenticator Authenticator, veri
 }
 
 func (handler *restoreHandler) restore(writer http.ResponseWriter, request *http.Request) {
+	clearResponseDeadline(writer)
 	request.Body = http.MaxBytesReader(writer, request.Body, restore.MaxCompressedBytes+restoreRequestOverhead)
 	if err := request.ParseMultipartForm(1 << 20); err != nil {
 		var maxBytesError *http.MaxBytesError
@@ -66,7 +67,9 @@ func (handler *restoreHandler) restore(writer http.ResponseWriter, request *http
 	}
 	handler.gate.Lock()
 	defer handler.gate.Unlock()
-	result, err := handler.service.Restore(request.Context(), file, header.Size)
+	// A client disconnect must not cancel the swap: after the active database
+	// is closed, a canceled context would leave the store permanently closed.
+	result, err := handler.service.Restore(context.WithoutCancel(request.Context()), file, header.Size)
 	switch {
 	case errors.Is(err, restore.ErrArchiveTooLarge):
 		writeError(writer, http.StatusRequestEntityTooLarge, "restore_archive_too_large")

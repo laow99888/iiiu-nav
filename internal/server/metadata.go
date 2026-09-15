@@ -106,6 +106,7 @@ func metadataRecognitionErrorCode(err error) string {
 }
 
 func (handler *metadataHandler) refreshAll(writer http.ResponseWriter, request *http.Request) {
+	clearResponseDeadline(writer)
 	links, err := handler.links.Links(request.Context())
 	if err != nil {
 		writeError(writer, http.StatusInternalServerError, "links_read_failed")
