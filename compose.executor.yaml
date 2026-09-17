@@ -1,0 +1,40 @@
+# 可选的受限一键更新执行器（NAV-418）。安装方法见 docs/OPERATIONS.md 第 7 节。
+#
+# 执行器容器持有 Docker 套接字并只暴露固定的更新/状态接口；应用容器从不
+# 挂载 Docker 套接字，只能通过共享的 executor-socket 卷与本协议通信。
+#
+# 安装（在本项目目录执行）：
+#   docker compose -f compose.yaml -f compose.executor.yaml up -d --wait
+#
+# 前提：应用栈的 Compose 项目名为 iiiu-nav（compose.yaml 顶层 name:）。
+services:
+  app:
+    environment:
+      IIU_NAV_EXECUTOR_SOCKET: /run/iiiu-nav/executor.sock
+    volumes:
+      - executor-socket:/run/iiiu-nav
+
+  executor:
+    image: ghcr.io/laow99888/iiiu-nav-executor:${IIU_NAV_EXECUTOR_TAG:-stable}
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      EXECUTOR_SOCKET: /run/iiiu-nav/executor.sock
+      EXECUTOR_PROJECT_DIR: /project
+      EXECUTOR_PROJECT_NAME: iiiu-nav
+      EXECUTOR_REPOSITORY: ghcr.io/laow99888/iiiu-nav
+      EXECUTOR_OVERRIDE_FILE: executor/.executor-image.yaml
+      EXECUTOR_COMPOSE_FILES: compose.yaml,executor/.executor-image.yaml
+    volumes:
+      - executor-socket:/run/iiiu-nav
+      - executor-override:/project/executor
+      - ./compose.yaml:/project/compose.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    cap_drop:
+      - ALL
+
+volumes:
+  executor-socket:
+  executor-override:

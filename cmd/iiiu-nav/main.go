@@ -27,8 +27,10 @@ func run(arguments []string, logger *slog.Logger) error {
 		return healthcheck()
 	case len(arguments) == 2 && arguments[0] == "admin" && arguments[1] == "reset-password":
 		return resetAdminPassword(logger)
+	case len(arguments) == 2 && arguments[0] == "restore":
+		return restoreFromBackup(logger, arguments[1])
 	default:
-		return errors.New("usage: iiiu-nav [serve | healthcheck | admin reset-password]")
+		return errors.New("usage: iiiu-nav [serve | healthcheck | admin reset-password | restore <archive>]")
 	}
 }
 

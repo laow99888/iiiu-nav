@@ -22,6 +22,7 @@ import (
 	"iiiu-nav/internal/server"
 	storage "iiiu-nav/internal/storage/sqlite"
 	"iiiu-nav/internal/updatecheck"
+	"iiiu-nav/internal/updateexecutor"
 	"iiiu-nav/internal/webui"
 )
 
@@ -102,26 +103,28 @@ func serve(logger *slog.Logger) error {
 	httpServer := &http.Server{
 		Addr: address,
 		Handler: server.New(server.Config{
-			Assets:      webui.Assets(),
-			Auth:        authenticator,
-			Categories:  data.store,
-			Links:       data.store,
-			Logos:       imagestore.NewLogos(data.layout.Logos),
-			SiteImages:  imagestore.NewSiteLogo(data.layout.Site),
-			Favicons:    imagestore.NewFavicon(data.layout.Site),
-			Backgrounds: imagestore.NewBackgrounds(data.layout.Backgrounds),
-			Backups:     backupManager,
-			Restores:    restoreManager,
-			Reverify:    authenticator,
-			Imports:     bookmarks.New(data.store),
-			Metadata:    linkmeta.New(),
-			Navigation:  data.store,
-			Settings:    data.store,
-			Analytics:   pageViews,
-			Updates:     updates,
-			Version:     version,
-			Logger:      logger,
-			Background:  background,
+			Assets:         webui.Assets(),
+			Auth:           authenticator,
+			Categories:     data.store,
+			Links:          data.store,
+			Logos:          imagestore.NewLogos(data.layout.Logos),
+			SiteImages:     imagestore.NewSiteLogo(data.layout.Site),
+			Favicons:       imagestore.NewFavicon(data.layout.Site),
+			Backgrounds:    imagestore.NewBackgrounds(data.layout.Backgrounds),
+			Backups:        backupManager,
+			Restores:       restoreManager,
+			Reverify:       authenticator,
+			Imports:        bookmarks.New(data.store),
+			Metadata:       linkmeta.New(),
+			Navigation:     data.store,
+			Settings:       data.store,
+			Analytics:      pageViews,
+			Updates:        updates,
+			Executor:       updateexecutor.New(os.Getenv("IIU_NAV_EXECUTOR_SOCKET")),
+			SchemaVersions: data.store,
+			Version:        version,
+			Logger:         logger,
+			Background:     background,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
