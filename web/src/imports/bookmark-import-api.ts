@@ -1,3 +1,5 @@
+import { ApiError, isRecord, request } from '../api/client';
+
 export type ImportVisibility = 'private' | 'public';
 export type DuplicateStrategy = 'skip' | 'update' | 'create';
 export type ImportEntryStatus = 'new' | 'duplicate' | 'invalid';
@@ -59,23 +61,18 @@ export async function importBookmarks(
 }
 
 function parseImportPreview(value: unknown): ImportPreview {
-  if (typeof value !== 'object' || value === null) {
+  if (!isRecord(value)) {
     throw new Error('invalid import preview');
   }
-  const { format, visibility, summary, categories } = value as Record<
-    string,
-    unknown
-  >;
+  const { format, visibility, summary, categories } = value;
   if (
     (format !== 'html' && format !== 'json') ||
     (visibility !== 'public' && visibility !== 'private') ||
-    typeof summary !== 'object' ||
-    summary === null ||
+    !isRecord(summary) ||
     !Array.isArray(categories)
   ) {
     throw new Error('invalid import preview');
   }
-  const counts = summary as Record<string, unknown>;
   for (const key of [
     'new',
     'duplicates',
@@ -83,17 +80,16 @@ function parseImportPreview(value: unknown): ImportPreview {
     'newCategories',
     'existingCategories',
   ]) {
-    if (typeof counts[key] !== 'number')
+    if (typeof summary[key] !== 'number')
       throw new Error('invalid import preview');
   }
   return value as ImportPreview;
 }
 
 function parseImportResult(value: unknown): ImportResult {
-  if (typeof value !== 'object' || value === null) {
+  if (!isRecord(value)) {
     throw new Error('invalid import result');
   }
-  const counts = value as Record<string, unknown>;
   for (const key of [
     'createdCategories',
     'createdLinks',
@@ -101,7 +97,7 @@ function parseImportResult(value: unknown): ImportResult {
     'skippedLinks',
     'invalidLinks',
   ]) {
-    if (typeof counts[key] !== 'number')
+    if (typeof value[key] !== 'number')
       throw new Error('invalid import result');
   }
   return value as ImportResult;
@@ -117,11 +113,11 @@ async function sendImport<Result>(
   body.set('bookmarks', file);
   body.set('visibility', visibility);
   if (duplicates) body.set('duplicates', duplicates);
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    credentials: 'same-origin',
-    body,
-  });
-  if (!response.ok) throw new Error('bookmark import request failed');
+  const response = await request(endpoint, { method: 'POST', body });
+  if (!response.ok) {
+    throw new ApiError('bookmark import request failed', {
+      status: response.status,
+    });
+  }
   return (await response.json()) as Result;
 }

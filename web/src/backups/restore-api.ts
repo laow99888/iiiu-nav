@@ -1,3 +1,5 @@
+import { ApiError, request } from '../api/client';
+
 export type RestoreErrorCode =
   | 'restore_password_invalid'
   | 'restore_archive_invalid'
@@ -6,9 +8,11 @@ export type RestoreErrorCode =
   | 'restore_space_insufficient'
   | 'restore_failed';
 
-export class RestoreError extends Error {
-  constructor(readonly code: RestoreErrorCode) {
-    super(code);
+export class RestoreError extends ApiError {
+  declare readonly code: RestoreErrorCode;
+
+  constructor(code: RestoreErrorCode, status: number) {
+    super(code, { code, status });
   }
 }
 
@@ -17,15 +21,11 @@ export async function restoreBackup(file: File, password: string) {
   body.set('backup', file);
   body.set('password', password);
   body.set('confirmation', 'RESTORE');
-  const response = await fetch('/api/restore', {
-    method: 'POST',
-    credentials: 'same-origin',
-    body,
-  });
+  const response = await request('/api/restore', { method: 'POST', body });
   if (!response.ok) {
     const result = (await response.json().catch(() => null)) as {
       error?: RestoreErrorCode;
     } | null;
-    throw new RestoreError(result?.error ?? 'restore_failed');
+    throw new RestoreError(result?.error ?? 'restore_failed', response.status);
   }
 }
