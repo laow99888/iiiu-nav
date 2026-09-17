@@ -12,8 +12,8 @@
   --color-border: #dad9d4;
   --color-border-strong: #b8b6af;
   --color-text: #242011;
-  --color-text-muted: #74736e;
-  --color-text-subtle: #92908a;
+  --color-text-muted: #63615b;
+  --color-text-subtle: #6f6d66;
   --site-accent: #305880;
   --color-accent: color-mix(in srgb, var(--site-accent) 72%, #06456f);
   --color-accent-hover: color-mix(in srgb, var(--site-accent) 60%, #05344f);
@@ -174,5 +174,17 @@
 @media (pointer: coarse) {
   :root {
     --control-height-sm: 32px;
+  }
+
+  /* 高频触控操作在粗指针设备上提高到 40px，缓解小目标误触。 */
+  .category-nav .category-nav__item,
+  .ui-sortable__handle,
+  .ui-sortable__actions .ui-button,
+  .admin-row-actions .ui-button {
+    min-height: 40px;
+  }
+
+  .admin-row-actions .ui-button {
+    min-width: 40px;
   }
 }

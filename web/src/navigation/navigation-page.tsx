@@ -112,6 +112,9 @@ function NavigationPageContent({
         } as JSX.CSSProperties
       }
     >
+      <a class="skip-link" href="#main-content">
+        {messages.ui.skipToContent}
+      </a>
       <aside class="navigation-sidebar">
         <SiteIdentity name={resolvedSite.name} logoUrl={resolvedSite.logoUrl} />
         <CategoryNavigation
@@ -139,7 +142,7 @@ function NavigationPageContent({
         />
       </aside>
 
-      <main class="navigation-main">
+      <main class="navigation-main" id="main-content" tabIndex={-1}>
         <header class="mobile-header">
           <SiteIdentity
             name={resolvedSite.name}

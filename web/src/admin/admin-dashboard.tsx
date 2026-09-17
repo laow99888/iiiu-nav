@@ -203,44 +203,69 @@ function VisitorChart({
   series: readonly DailyPageViews[];
 }) {
   const maximum = Math.max(...series.map((item) => item.views));
+  const tableId = `visitor-chart-table-${period}`;
   return (
-    <div
-      class="admin-visitor-chart-frame"
-      role="img"
-      aria-label={messages.admin.visitorChartLabel(period)}
-    >
-      <div class={`admin-visitor-chart admin-visitor-chart--${period}`}>
-        {series.map((item) => {
-          const height =
-            item.views === 0
-              ? 0
-              : Math.max(8, Math.round((item.views / maximum) * 100));
-          return (
-            <div
-              class="admin-visitor-chart__item"
-              key={item.date}
-              title={messages.admin.dailyViews(
-                formatChartDate(item.date),
-                item.views,
-              )}
-            >
-              <span class="admin-visitor-chart__track" aria-hidden="true">
-                <span
-                  class={item.views === 0 ? 'is-zero' : undefined}
-                  style={{ height: `${height}%` }}
-                />
-              </span>
-              {period === 7 ? (
-                <span class="admin-visitor-chart__label">
-                  {formatChartDate(item.date)}
+    <>
+      <div
+        class="admin-visitor-chart-frame"
+        role="img"
+        aria-label={messages.admin.visitorChartLabel(period)}
+        aria-describedby={tableId}
+        tabIndex={0}
+      >
+        <div class={`admin-visitor-chart admin-visitor-chart--${period}`}>
+          {series.map((item) => {
+            const height =
+              item.views === 0
+                ? 0
+                : Math.max(8, Math.round((item.views / maximum) * 100));
+            return (
+              <div
+                class="admin-visitor-chart__item"
+                key={item.date}
+                title={messages.admin.dailyViews(
+                  formatChartDate(item.date),
+                  item.views,
+                )}
+              >
+                <span class="admin-visitor-chart__value" aria-hidden="true">
+                  {item.views}
                 </span>
-              ) : null}
-            </div>
-          );
-        })}
+                <span class="admin-visitor-chart__track" aria-hidden="true">
+                  <span
+                    class={item.views === 0 ? 'is-zero' : undefined}
+                    style={{ height: `${height}%` }}
+                  />
+                </span>
+                {period === 7 ? (
+                  <span class="admin-visitor-chart__label">
+                    {formatChartDate(item.date)}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+        {period === 30 ? <ChartAxis series={series} /> : null}
       </div>
-      {period === 30 ? <ChartAxis series={series} /> : null}
-    </div>
+      <table class="sr-only" id={tableId}>
+        <caption>{messages.admin.visitorChartLabel(period)}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{messages.admin.date}</th>
+            <th scope="col">{messages.admin.dailyPV}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {series.map((item) => (
+            <tr key={item.date}>
+              <th scope="row">{formatChartDate(item.date)}</th>
+              <td>{item.views}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   );
 }
 

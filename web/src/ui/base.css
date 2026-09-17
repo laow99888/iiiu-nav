@@ -60,6 +60,25 @@ select {
   border: 0;
 }
 
+.skip-link {
+  position: fixed;
+  top: -64px;
+  left: 16px;
+  z-index: calc(var(--layer-toast) + 1);
+  padding: 10px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  box-shadow: var(--shadow-overlay);
+  transition: top var(--motion-fast);
+}
+
+.skip-link:focus-visible {
+  top: 12px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

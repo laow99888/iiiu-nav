@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/preact';
+import { cleanup, render, screen, waitFor } from '@testing-library/preact';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'preact/hooks';
 import { describe, expect, it, vi } from 'vitest';
@@ -133,5 +133,56 @@ describe('浮层控件', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     await user.tab();
     expect(screen.getByRole('tooltip')).toBeInTheDocument();
+  });
+});
+
+describe('浮层与浏览器历史', () => {
+  it('浏览器返回键关闭最上层浮层', async () => {
+    const onClose = vi.fn();
+    window.history.pushState(null, '', '/');
+    render(
+      <Dialog open title="返回键浮层" onClose={onClose}>
+        <Button>确认</Button>
+      </Dialog>,
+    );
+
+    await waitFor(() =>
+      expect(
+        (window.history.state as { uiModal?: number } | null)?.uiModal,
+      ).toBeDefined(),
+    );
+    window.history.back();
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    cleanup();
+  });
+
+  it('浮层被主动关闭时回退哨兵历史记录', async () => {
+    const user = userEvent.setup();
+    window.history.pushState(null, '', '/');
+    function Harness() {
+      const [open, setOpen] = useState(true);
+      if (!open) {
+        return <p>已关闭</p>;
+      }
+      return (
+        <Dialog open title="历史浮层" onClose={() => setOpen(false)}>
+          <Button onClick={() => setOpen(false)}>关闭</Button>
+        </Dialog>
+      );
+    }
+    render(<Harness />);
+    await waitFor(() =>
+      expect(
+        (window.history.state as { uiModal?: number } | null)?.uiModal,
+      ).toBeDefined(),
+    );
+
+    await user.click(screen.getByRole('button', { name: '关闭' }));
+    expect(screen.getByText('已关闭')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        (window.history.state as { uiModal?: number } | null)?.uiModal,
+      ).toBeUndefined(),
+    );
   });
 });

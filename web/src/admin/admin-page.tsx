@@ -27,7 +27,12 @@ import {
   type LinkEditorState,
 } from './admin-content-dialogs';
 import { AdminSectionContent } from './admin-section-content';
-import { adminSectionTitle, type AdminSection } from './admin-section';
+import {
+  adminSectionFromPath,
+  adminSectionPath,
+  adminSectionTitle,
+  type AdminSection,
+} from './admin-section';
 
 type Props = {
   categories: readonly NavigationCategory[];
@@ -52,7 +57,18 @@ function AdminPageContent({
   searchEngines = [],
   site,
 }: Props) {
-  const [section, setSection] = useState<AdminSection>('dashboard');
+  // 模块选择写入 URL（/admin/links 等），刷新与直达保持在原模块。
+  const [section, setSectionState] = useState<AdminSection>(
+    () => adminSectionFromPath(window.location.pathname) ?? 'dashboard',
+  );
+  const setSection = (next: AdminSection) => {
+    setSectionState((current) => {
+      if (current !== next) {
+        window.history.replaceState(null, '', adminSectionPath(next));
+      }
+      return next;
+    });
+  };
   const [categoryManager, setCategoryManager] =
     useState<CategoryManagerState>(null);
   const [linkEditor, setLinkEditor] = useState<LinkEditorState>(null);
@@ -93,6 +109,9 @@ function AdminPageContent({
 
   return (
     <div class="admin-shell">
+      <a class="skip-link" href="#main-content">
+        {messages.ui.skipToContent}
+      </a>
       <AdminSidebar
         section={section}
         site={resolvedSite}
@@ -100,7 +119,7 @@ function AdminPageContent({
         onSessionChanged={onSessionChanged}
       />
 
-      <main class="admin-main">
+      <main class="admin-main" id="main-content" tabIndex={-1}>
         <header class="admin-mobile-header">
           <SiteIdentity
             name={resolvedSite.name}

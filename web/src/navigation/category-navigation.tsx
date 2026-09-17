@@ -65,10 +65,12 @@ export function CategoryNavigation({
             <span class="category-nav__name">
               <span>{item.name}</span>
               {item.private ? (
-                <Lock
-                  class="category-nav__private"
-                  aria-label={messages.navigation.privateCategory}
-                />
+                <>
+                  <Lock class="category-nav__private" aria-hidden="true" />
+                  <span class="sr-only">
+                    {messages.navigation.privateCategory}
+                  </span>
+                </>
               ) : null}
             </span>
             <span

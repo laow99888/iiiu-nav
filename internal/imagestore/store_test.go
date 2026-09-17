@@ -127,3 +127,55 @@ func TestPruneKeepsOnlyReferencedImages(t *testing.T) {
 }
 
 const testWebP = "UklGRrIBAABXRUJQVlA4TKUBAAAvSsAYAA8w//M///MfeJAkbXvaSG7m8Q3GfYSBJekwQztm/IcZlgwnmWImn2BK7aFmBtnVir6q//8VOkFE/xm4baTIu8c48ArEo6+B3zFKYln3pqClSCKX0begFTAXFOLXHSyF8cCNcZEG4OywuA4KVVfJCiArU7GAgJI8+lJP/OKMT/fBAjevg1cYB7YVkFuWga2lyPi5I0HFy5YTpWIHg0RZpkniRVW9odHAKOwosWuOGdxIyn2OvaCDvhg/we6TwadPBPbqBV58MsLmMJ8yZnOWk8SRz4N+QoyPL+MnamzMvcE1rHNEr91F9GKZPVUcS9w7PhhH36suB9qPeYb/oLk6cuTiJ0wOK3m5h1cKjW6EVZCYMK7dxcKCBdgP9HkKr9gkAO2P8GKZGWVdIAatQa+1IDpt6qyorVwdy01xdW8Jkfk6xjEXmVQQ+HQdFr6OKhIN34dXWq0+0qr6EJSCeeVLH9+gvGTLyqM65PQ44ihzlTXxQKjKbAvshXgir7Lil9w4L2bvMycmjQcqXaMCO6BlY28i+FOLzbfI1vEqxAhotocAAA=="
+
+func TestBackgroundStoreKeepsOpaqueJPEGAndTransparentPNG(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	store := NewBackgrounds(root)
+
+	opaque := image.NewNRGBA(image.Rect(0, 0, 320, 200))
+	for y := 0; y < 200; y++ {
+		for x := 0; x < 320; x++ {
+			opaque.Set(x, y, color.NRGBA{R: 200, G: 190, B: 170, A: 255})
+		}
+	}
+	var jpegInput bytes.Buffer
+	if err := jpeg.Encode(&jpegInput, opaque, nil); err != nil {
+		t.Fatalf("encode opaque jpeg fixture: %v", err)
+	}
+	publicPath, err := store.Save(bytes.NewReader(jpegInput.Bytes()))
+	if err != nil {
+		t.Fatalf("save opaque background: %v", err)
+	}
+	if filepath.Ext(publicPath) != ".jpg" {
+		t.Fatalf("expected opaque background stored as .jpg, got %q", publicPath)
+	}
+
+	transparent := image.NewNRGBA(image.Rect(0, 0, 320, 200))
+	transparent.Set(0, 0, color.NRGBA{A: 128})
+	var pngInput bytes.Buffer
+	if err := png.Encode(&pngInput, transparent); err != nil {
+		t.Fatalf("encode transparent png fixture: %v", err)
+	}
+	transparentPath, err := store.Save(bytes.NewReader(pngInput.Bytes()))
+	if err != nil {
+		t.Fatalf("save transparent background: %v", err)
+	}
+	if filepath.Ext(transparentPath) != ".png" {
+		t.Fatalf("expected transparent background stored as .png, got %q", transparentPath)
+	}
+
+	if _, valid := store.Filename(publicPath); !valid {
+		t.Fatalf("expected .jpg background path to validate, got %q", publicPath)
+	}
+	retained := map[string]struct{}{transparentPath: {}}
+	if err := store.Prune(retained); err != nil {
+		t.Fatalf("prune: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, publicPath[len(BackgroundPrefix):])); !os.IsNotExist(err) {
+		t.Fatalf("expected unreferenced .jpg to be pruned, got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, transparentPath[len(BackgroundPrefix):])); err != nil {
+		t.Fatalf("expected retained .png to survive pruning: %v", err)
+	}
+}

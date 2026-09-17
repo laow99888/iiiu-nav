@@ -23,6 +23,8 @@ export function LinkLogo({ label, text, tone, url = null }: LinkLogoProps) {
           src={url}
           alt=""
           role="presentation"
+          loading="lazy"
+          decoding="async"
           onError={() => setImageFailed(true)}
         />
       ) : (

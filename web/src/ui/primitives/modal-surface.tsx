@@ -45,6 +45,25 @@ export function ModalSurface({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
+    // 浏览器返回键（尤其 Android）应关闭最上层浮层，而不是直接离开页面。
+    window.history.pushState({ uiModal: surfaceID }, '');
+    let sentinelActive = true;
+    let closedByHistory = false;
+    const handlePopState = () => {
+      const state = window.history.state as { uiModal?: number } | null;
+      if (sentinelActive && state?.uiModal !== surfaceID) {
+        // 历史离开了本浮层的哨兵条目：说明用户按了返回键。
+        sentinelActive = false;
+        closedByHistory = true;
+        onCloseRef.current();
+        return;
+      }
+      if (state?.uiModal === surfaceID) {
+        sentinelActive = true;
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+
     const panel = panelRef.current;
     const firstFocusable = panel?.querySelector<HTMLElement>(focusableSelector);
     (firstFocusable ?? panel)?.focus();
@@ -89,6 +108,11 @@ export function ModalSurface({
         openSurfaceIDs.splice(index, 1);
       }
       document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('popstate', handlePopState);
+      const state = window.history.state as { uiModal?: number } | null;
+      if (!closedByHistory && state && state.uiModal === surfaceID) {
+        window.history.back();
+      }
       document.body.style.overflow = previousOverflow;
       previousFocus?.focus();
     };

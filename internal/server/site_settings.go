@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"iiiu-nav/internal/imagestore"
 	"iiiu-nav/internal/siteconfig"
@@ -175,7 +176,11 @@ func serveStoredImage(writer http.ResponseWriter, request *http.Request, images 
 		return
 	}
 	writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	writer.Header().Set("Content-Type", "image/png")
+	contentType := "image/png"
+	if strings.EqualFold(filepath.Ext(name), ".jpg") {
+		contentType = "image/jpeg"
+	}
+	writer.Header().Set("Content-Type", contentType)
 	http.ServeContent(writer, request, name, info.ModTime(), file)
 }
 

@@ -7,16 +7,17 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/jpeg"
 	"image/png"
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	_ "github.com/fyne-io/image/ico"
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
-	_ "image/jpeg"
 )
 
 const (
@@ -38,6 +39,9 @@ type Config struct {
 	MaxPixels      int
 	NormalizedSize int
 	Formats        map[string]struct{}
+	// JpegForOpaque stores fully opaque images as JPEG (quality 82) to cut
+	// file size; images with any transparency still store as PNG.
+	JpegForOpaque bool
 }
 
 type Store struct{ config Config }
@@ -72,7 +76,8 @@ func NewBackgrounds(root string) *Store {
 		// 16M pixels (~4K-class) bounds the transient decode spike to about
 		// 64 MiB of NRGBA memory; larger uploads are rejected before decode.
 		MaxDimension: 8192, MaxPixels: 16_000_000, NormalizedSize: 2560,
-		Formats: formats("png", "jpeg", "webp"),
+		Formats:       formats("png", "jpeg", "webp"),
+		JpegForOpaque: true,
 	})
 }
 
@@ -94,7 +99,8 @@ func (store *Store) Save(reader io.Reader) (string, error) {
 	if err != nil || decodedFormat != format {
 		return "", ErrInvalidImage
 	}
-	name, err := randomName()
+	normalized := normalize(decoded, store.config.NormalizedSize)
+	name, err := randomName(store.outputExtension(normalized))
 	if err != nil {
 		return "", fmt.Errorf("name image: %w", err)
 	}
@@ -108,10 +114,17 @@ func (store *Store) Save(reader io.Reader) (string, error) {
 		_ = temporary.Close()
 		return "", fmt.Errorf("protect image: %w", err)
 	}
-	encoder := png.Encoder{CompressionLevel: png.BestSpeed}
-	if err := encoder.Encode(temporary, normalize(decoded, store.config.NormalizedSize)); err != nil {
-		_ = temporary.Close()
-		return "", fmt.Errorf("encode image: %w", err)
+	if strings.EqualFold(filepath.Ext(name), ".jpg") {
+		if err := jpeg.Encode(temporary, normalized, &jpeg.Options{Quality: 82}); err != nil {
+			_ = temporary.Close()
+			return "", fmt.Errorf("encode image: %w", err)
+		}
+	} else {
+		encoder := png.Encoder{CompressionLevel: png.BestSpeed}
+		if err := encoder.Encode(temporary, normalized); err != nil {
+			_ = temporary.Close()
+			return "", fmt.Errorf("encode image: %w", err)
+		}
 	}
 	if err := temporary.Sync(); err != nil {
 		_ = temporary.Close()
@@ -142,8 +155,9 @@ func (store *Store) Prune(retained map[string]struct{}) error {
 	if err != nil {
 		return fmt.Errorf("read image directory: %w", err)
 	}
+	allowed := store.extensions()
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".png") {
+		if entry.IsDir() || !slices.Contains(allowed, strings.ToLower(filepath.Ext(entry.Name()))) {
 			continue
 		}
 		publicPath := store.config.PublicPrefix + entry.Name()
@@ -158,7 +172,35 @@ func (store *Store) Prune(retained map[string]struct{}) error {
 }
 
 func (store *Store) Filename(publicPath string) (string, bool) {
-	return Filename(publicPath, store.config.PublicPrefix)
+	return filenameWithExtensions(publicPath, store.config.PublicPrefix, store.extensions())
+}
+
+func (store *Store) extensions() []string {
+	if store.config.JpegForOpaque {
+		return []string{".png", ".jpg"}
+	}
+	return []string{".png"}
+}
+
+// outputExtension reports which stored format fits the image: opaque uploads
+// of JPEG-enabled stores keep the much smaller JPEG encoding.
+func (store *Store) outputExtension(source image.Image) string {
+	if store.config.JpegForOpaque && isOpaque(source) {
+		return ".jpg"
+	}
+	return ".png"
+}
+
+func isOpaque(source image.Image) bool {
+	bounds := source.Bounds()
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if _, _, _, alpha := source.At(x, y).RGBA(); alpha != 0xffff {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (store *Store) Root() string    { return store.config.Root }
@@ -174,11 +216,22 @@ func (store *Store) validDimensions(width, height int) bool {
 }
 
 func Filename(publicPath, prefix string) (string, bool) {
+	return filenameWithExtensions(publicPath, prefix, []string{".png"})
+}
+
+func filenameWithExtensions(publicPath, prefix string, extensions []string) (string, bool) {
 	if !strings.HasPrefix(publicPath, prefix) {
 		return "", false
 	}
 	name := strings.TrimPrefix(publicPath, prefix)
-	if name == "" || filepath.Base(name) != name || !strings.HasSuffix(name, ".png") || strings.ContainsAny(name, `/\`) {
+	matched := false
+	for _, extension := range extensions {
+		if strings.HasSuffix(strings.ToLower(name), extension) {
+			matched = true
+			break
+		}
+	}
+	if name == "" || filepath.Base(name) != name || !matched || strings.ContainsAny(name, `/\`) {
 		return "", false
 	}
 	return name, true
@@ -207,10 +260,10 @@ func normalize(source image.Image, maximum int) image.Image {
 	return destination
 }
 
-func randomName() (string, error) {
+func randomName(extension string) (string, error) {
 	value := make([]byte, 16)
 	if _, err := rand.Read(value); err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(value) + ".png", nil
+	return hex.EncodeToString(value) + extension, nil
 }

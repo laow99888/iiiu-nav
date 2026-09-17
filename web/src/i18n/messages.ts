@@ -1,5 +1,6 @@
 export const messages = {
   ui: {
+    skipToContent: '跳到主内容',
     closeDialog: '关闭对话框',
     closeDrawer: '关闭抽屉',
     closeToast: '关闭通知',
@@ -61,6 +62,7 @@ export const messages = {
     badge: '管理员后台',
     title: '管理后台',
     linkOrderLabel: (order: number) => `当前列表第 ${order} 位`,
+    date: '日期',
     loginTitle: '进入管理后台',
     loginDescription: '登录后管理分类、链接、数据和站点设置。',
     loadingWorkspace: '正在载入管理后台',

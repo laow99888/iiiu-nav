@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/preact';
+import { render, screen, waitFor, within } from '@testing-library/preact';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -44,5 +44,28 @@ describe('真实访客统计仪表盘', () => {
       expect(screen.getByTestId('visitor-total')).toHaveTextContent('14'),
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('访客图表的无障碍数据', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('为读屏提供逐日数据表，并在柱体上显示数值浮层', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(analyticsResponse(3)));
+    render(<AdminDashboard categories={[]} />);
+
+    const table = await screen.findByRole('table', {
+      hidden: true,
+    });
+    expect(table).toBeInTheDocument();
+    const rows = within(table).getAllByRole('row');
+    // 默认展示近 7 天：表头 + 7 天数据行
+    expect(rows.length).toBe(8);
+    // 每行 = 本地化日期（rowheader）+ 逐日 PV 数值（cell）
+    expect(within(rows[1]).getByRole('rowheader')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('3')).toBeInTheDocument();
+    expect(
+      document.querySelector('.admin-visitor-chart__value'),
+    ).toBeInTheDocument();
   });
 });

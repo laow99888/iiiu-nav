@@ -151,11 +151,25 @@ func allowedArchivePath(name string, directory bool) bool {
 		return directory
 	}
 	parts := strings.Split(name, "/")
-	if directory || len(parts) != 3 || parts[0] != "uploads" || (parts[1] != "logos" && parts[1] != "backgrounds" && parts[1] != "site") {
+	if directory || len(parts) != 3 || parts[0] != "uploads" {
 		return false
 	}
 	filename := parts[2]
-	if filename == "" || strings.HasPrefix(filename, ".") || !strings.HasSuffix(strings.ToLower(filename), ".png") {
+	if filename == "" || strings.HasPrefix(filename, ".") {
+		return false
+	}
+	extension := strings.ToLower(filepath.Ext(filename))
+	// Backgrounds may store opaque JPEG encodes; every other asset is PNG.
+	switch parts[1] {
+	case "backgrounds":
+		if extension != ".png" && extension != ".jpg" {
+			return false
+		}
+	case "logos", "site":
+		if extension != ".png" {
+			return false
+		}
+	default:
 		return false
 	}
 	for _, character := range filename {
