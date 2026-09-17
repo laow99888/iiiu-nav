@@ -1,3 +1,5 @@
+import { isRecord, requestJSON } from '../api/client';
+
 export type DailyPageViews = {
   date: string;
   views: number;
@@ -6,15 +8,11 @@ export type DailyPageViews = {
 export async function fetchPageViews(
   signal?: AbortSignal,
 ): Promise<DailyPageViews[]> {
-  const response = await fetch('/api/analytics/page-views', {
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
-    signal,
-  });
-  if (!response.ok) {
-    throw new Error(`Analytics request failed: ${response.status}`);
-  }
-  const value: unknown = await response.json();
+  const value: unknown = await requestJSON(
+    '/api/analytics/page-views',
+    { signal },
+    'Analytics request failed',
+  );
   if (!isPageViewResponse(value)) {
     throw new Error('Analytics response is invalid');
   }
@@ -25,19 +23,18 @@ function isPageViewResponse(
   value: unknown,
 ): value is { series: DailyPageViews[] } {
   return (
-    typeof value === 'object' &&
-    value !== null &&
+    isRecord(value) &&
     'series' in value &&
     Array.isArray(value.series) &&
     value.series.length === 30 &&
     value.series.every(
       (item) =>
-        typeof item === 'object' &&
-        item !== null &&
+        isRecord(item) &&
         'date' in item &&
         typeof item.date === 'string' &&
         /^\d{4}-\d{2}-\d{2}$/.test(item.date) &&
         'views' in item &&
+        typeof item.views === 'number' &&
         Number.isInteger(item.views) &&
         item.views >= 0,
     )

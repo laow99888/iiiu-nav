@@ -1,8 +1,9 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useCallback, useState } from 'preact/hooks';
 
 import { messages } from '../i18n/messages';
 import type { NavigationCategory } from '../navigation/types';
+import { useAsyncResource } from '../ui/hooks/use-async-resource';
 import {
   LayoutGrid,
   ListOrdered,
@@ -15,35 +16,26 @@ import { fetchPageViews, type DailyPageViews } from './analytics-api';
 
 type Period = 7 | 30;
 
-type AnalyticsState =
-  | { status: 'loading' }
-  | { status: 'error' }
-  | { status: 'ready'; series: DailyPageViews[] };
-
 export function AdminDashboard({
   categories,
 }: {
   categories: readonly NavigationCategory[];
 }) {
   const [period, setPeriod] = useState<Period>(7);
-  const [analytics, setAnalytics] = useState<AnalyticsState>({
-    status: 'loading',
-  });
-  const [requestVersion, setRequestVersion] = useState(0);
-  useEffect(() => {
-    const controller = new AbortController();
-    setAnalytics({ status: 'loading' });
-    void fetchPageViews(controller.signal)
-      .then((series) => setAnalytics({ status: 'ready', series }))
-      .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) {
-          setAnalytics({ status: 'error' });
-        }
-      });
-    return () => controller.abort();
-  }, [requestVersion]);
+  // 周期切换与重试都通过改变 loader 引用，让 hook 回到加载态重新拉取，
+  // 与原先 requestVersion 驱动 effect 重新请求的方式保持一致。
+  const [attempt, setAttempt] = useState(0);
+  const load = useCallback(
+    (signal: AbortSignal) => fetchPageViews(signal),
+    // 故意依赖 attempt 与 period：它们的引用变化代表“资源定义变化”，
+    // 借此触发 hook 回到加载态重新拉取（重试与周期切换共用该通道）。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [attempt, period],
+  );
+  const resource = useAsyncResource(load);
+  const analytics = resource.state;
   const series =
-    analytics.status === 'ready' ? analytics.series.slice(-period) : [];
+    analytics.kind === 'ready' ? analytics.value.slice(-period) : [];
   const visitors = series.reduce((total, item) => total + item.views, 0);
   const totalLinks = categories.reduce(
     (total, category) => total + category.links.length,
@@ -56,9 +48,7 @@ export function AdminDashboard({
         <AdminMetric
           icon={Monitor}
           label={messages.admin.visitorTotal}
-          value={
-            analytics.status === 'ready' ? formatNumber(visitors) : '\u2014'
-          }
+          value={analytics.kind === 'ready' ? formatNumber(visitors) : '\u2014'}
           testID="visitor-total"
         />
         <AdminMetric
@@ -95,13 +85,13 @@ export function AdminDashboard({
             </PeriodButton>
           </div>
         </header>
-        {analytics.status === 'loading' ? (
+        {analytics.kind === 'loading' ? (
           <AnalyticsState
             status="status"
             title={messages.admin.analyticsLoading}
             description={messages.admin.analyticsLoadingDescription}
           />
-        ) : analytics.status === 'error' ? (
+        ) : analytics.kind === 'error' ? (
           <AnalyticsState
             status="alert"
             title={messages.admin.analyticsFailed}
@@ -109,7 +99,7 @@ export function AdminDashboard({
             action={
               <Button
                 icon={RefreshCw}
-                onClick={() => setRequestVersion((current) => current + 1)}
+                onClick={() => setAttempt((current) => current + 1)}
               >
                 {messages.admin.analyticsRetry}
               </Button>

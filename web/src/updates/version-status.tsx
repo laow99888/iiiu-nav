@@ -1,47 +1,154 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 
+import { ApiError } from '../api/client';
 import { messages } from '../i18n/messages';
+import {
+  useAsyncResource,
+  type AsyncResourceState,
+} from '../ui/hooks/use-async-resource';
 import { ArrowUpRight, RefreshCw } from '../ui/icons/interface-icons';
-import { Button } from '../ui/primitives';
-import { fetchUpdateStatus, type UpdateStatus } from './update-api';
+import { Button, TextField } from '../ui/primitives';
+import {
+  fetchInstallStatus,
+  fetchUpdateStatus,
+  installUpdate,
+  type InstallPhase,
+  type UpdateStatus,
+} from './update-api';
 
-type ViewState =
-  | { kind: 'loading' }
-  | { kind: 'error' }
-  | { kind: 'ready'; status: UpdateStatus };
+type ViewState = AsyncResourceState<UpdateStatus>;
+
+// 一键更新是独立于版本检查的本地状态机：confirm 输入密码，running 轮询
+// 执行器进度（应用重启期间请求会失败，属预期），succeeded 刷新页面。
+type Install =
+  | { kind: 'idle' }
+  | { kind: 'confirm' }
+  | { kind: 'running'; text: string; waiting: boolean }
+  | { kind: 'succeeded' }
+  | { kind: 'failed'; message: string };
 
 export function VersionStatus() {
-  const [view, setView] = useState<ViewState>({ kind: 'loading' });
   const [refreshing, setRefreshing] = useState(false);
-  // Guards against a slow cached response landing after a forced re-check and
-  // overwriting fresher state.
-  const requestRef = useRef(0);
-
-  const load = useCallback(async (force: boolean, signal?: AbortSignal) => {
-    const requestId = ++requestRef.current;
-    if (force) setRefreshing(true);
-    try {
-      const status = await fetchUpdateStatus(force, signal);
-      if (requestId !== requestRef.current) return;
-      setView({ kind: 'ready', status });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      if (requestId !== requestRef.current) return;
-      setView({ kind: 'error' });
-    } finally {
-      if (force && requestId === requestRef.current) setRefreshing(false);
-    }
+  // 手动“检查更新”走强制端点（POST /api/updates/check），其余加载读缓存。
+  // loader 引用保持稳定，强制标志经 ref 传递给下一次加载。
+  const forceRef = useRef(false);
+  const load = useCallback((signal: AbortSignal) => {
+    const force = forceRef.current;
+    forceRef.current = false;
+    return fetchUpdateStatus(force, signal);
   }, []);
+  const resource = useAsyncResource(load);
+  const view = resource.state;
 
+  const [install, setInstall] = useState<Install>({ kind: 'idle' });
+  const [password, setPassword] = useState('');
+  const [installError, setInstallError] = useState<string | null>(null);
+
+  const checkNow = () => {
+    forceRef.current = true;
+    setRefreshing(true);
+    resource.reload();
+  };
+  // reload 结束（无论成败）都会产生新的 state 对象，用它在此时撤下按钮加载视觉。
   useEffect(() => {
-    const controller = new AbortController();
-    void load(false, controller.signal);
-    return () => controller.abort();
-  }, [load]);
+    setRefreshing(false);
+  }, [view]);
 
-  const presentation = versionPresentation(view);
-  const status = view.kind === 'ready' ? view.status : null;
+  const status = view.kind === 'ready' ? view.value : null;
   const updateAvailable = status?.state === 'update_available';
+  const installable = updateAvailable && status.automaticUpdate === true;
+  const busy =
+    install.kind === 'running' ||
+    install.kind === 'succeeded' ||
+    install.kind === 'failed';
+
+  // 轮询执行器进度；应用被重建期间请求会失败，此时保持轮询并提示等待。
+  useEffect(() => {
+    if (install.kind !== 'running') return undefined;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const progress = await fetchInstallStatus();
+        if (!alive) return;
+        if (progress.state === 'succeeded') {
+          setInstall({ kind: 'succeeded' });
+          return;
+        }
+        if (progress.state === 'failed') {
+          setInstall({
+            kind: 'failed',
+            message: progress.message || messages.updates.installFailed,
+          });
+          return;
+        }
+        if (progress.state === 'running') {
+          setInstall({
+            kind: 'running',
+            text: phaseText(progress.phase),
+            waiting: false,
+          });
+        }
+      } catch {
+        if (alive)
+          setInstall((current) =>
+            current.kind === 'running'
+              ? { ...current, waiting: true }
+              : current,
+          );
+      }
+    };
+    void tick();
+    const timer = window.setInterval(() => void tick(), 2000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [install.kind]);
+
+  // 更新成功后短暂提示再刷新；卸载（测试、导航）会取消这次刷新。
+  useEffect(() => {
+    if (install.kind !== 'succeeded') return undefined;
+    const timer = window.setTimeout(() => {
+      window.location.reload();
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [install.kind]);
+
+  const startInstall = async () => {
+    const version = status?.latestVersion;
+    if (!version) return;
+    try {
+      await installUpdate(password, version);
+      setPassword('');
+      setInstallError(null);
+      setInstall({
+        kind: 'running',
+        text: messages.updates.phaseQueued,
+        waiting: false,
+      });
+    } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.code === 'update_password_invalid'
+      ) {
+        setInstallError(messages.updates.invalidPassword);
+        return;
+      }
+      if (
+        error instanceof ApiError &&
+        error.code === 'update_already_running'
+      ) {
+        setInstallError(messages.updates.alreadyRunning);
+        return;
+      }
+      setInstallError(messages.updates.installStartFailed);
+    }
+  };
+
+  const presentation = versionPresentation(
+    view,
+    status?.automaticUpdate === true,
+  );
 
   return (
     <article class="admin-workspace-row admin-version-row">
@@ -76,19 +183,118 @@ export function VersionStatus() {
             <code>{messages.updates.manualCommand}</code>
           </div>
         ) : null}
+        {install.kind === 'confirm' ? (
+          <form
+            class="admin-version__install"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void startInstall();
+            }}
+          >
+            <p>{messages.updates.installDescription}</p>
+            <TextField
+              error={installError ?? undefined}
+              label={messages.updates.installPassword}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              required
+              type="password"
+              value={password}
+            />
+            <div class="admin-version__install-actions">
+              <Button type="submit">{messages.updates.installStart}</Button>
+              <Button
+                onClick={() => {
+                  setInstall({ kind: 'idle' });
+                  setInstallError(null);
+                  setPassword('');
+                }}
+                type="button"
+                variant="secondary"
+              >
+                {messages.updates.cancel}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+        {install.kind === 'running' ? (
+          <div class="admin-version__install" role="status">
+            <p>
+              <strong>{messages.updates.installRunning}</strong>
+              {install.waiting
+                ? ` ${messages.updates.installWaiting}`
+                : ` ${install.text}`}
+            </p>
+          </div>
+        ) : null}
+        {install.kind === 'succeeded' ? (
+          <div class="admin-version__install" role="status">
+            <p>{messages.updates.installSucceeded}</p>
+          </div>
+        ) : null}
+        {install.kind === 'failed' ? (
+          <div
+            class="admin-version__install admin-version__install--failed"
+            role="alert"
+          >
+            <p>
+              <strong>{messages.updates.installFailed}</strong>
+              {install.message ? ` ${install.message}` : ''}
+            </p>
+            <div class="admin-version__install-actions">
+              <Button
+                onClick={() => {
+                  setInstall({ kind: 'idle' });
+                  setInstallError(null);
+                }}
+                type="button"
+                variant="secondary"
+              >
+                {messages.updates.cancel}
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
-      <Button
-        icon={RefreshCw}
-        loading={refreshing}
-        onClick={() => void load(true)}
-      >
-        {messages.updates.checkNow}
-      </Button>
+      {busy ? null : (
+        <div class="admin-version__actions">
+          {installable ? (
+            <Button
+              onClick={() => {
+                setInstallError(null);
+                setInstall({ kind: 'confirm' });
+              }}
+              type="button"
+            >
+              {messages.updates.installTo(status?.latestVersion ?? '')}
+            </Button>
+          ) : null}
+          <Button icon={RefreshCw} loading={refreshing} onClick={checkNow}>
+            {messages.updates.checkNow}
+          </Button>
+        </div>
+      )}
     </article>
   );
 }
 
-function versionPresentation(view: ViewState) {
+function phaseText(phase: InstallPhase) {
+  switch (phase) {
+    case 'queued':
+      return messages.updates.phaseQueued;
+    case 'verifying_release':
+      return messages.updates.phaseVerify;
+    case 'pulling':
+      return messages.updates.phasePull;
+    case 'restarting':
+      return messages.updates.phaseRestart;
+    case 'recovering':
+      return messages.updates.phaseRecover;
+    default:
+      return messages.updates.phaseHealth;
+  }
+}
+
+function versionPresentation(view: ViewState, automaticUpdate: boolean) {
   if (view.kind === 'loading') {
     return {
       summary: messages.updates.loading,
@@ -102,7 +308,7 @@ function versionPresentation(view: ViewState) {
     };
   }
 
-  const { status } = view;
+  const status = view.value;
   switch (status.state) {
     case 'development':
       return {
@@ -122,7 +328,9 @@ function versionPresentation(view: ViewState) {
           status.publishedAt
             ? messages.updates.published(formatDate(status.publishedAt))
             : messages.updates.stableChannel,
-          messages.updates.executorUnavailable,
+          automaticUpdate
+            ? messages.updates.executorAvailable
+            : messages.updates.executorUnavailable,
         ],
       };
     case 'rate_limited':

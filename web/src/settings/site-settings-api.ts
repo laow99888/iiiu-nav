@@ -1,14 +1,16 @@
+import { ApiError, isRecord, request, requestJSON } from '../api/client';
 import type { SiteSettings } from '../navigation/types';
 
 export async function saveSiteSettings(settings: SiteSettings) {
-  const response = await fetch('/api/settings/site', {
+  const response = await request('/api/settings/site', {
     method: 'PUT',
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
   });
-  if (!response.ok)
-    throw new Error(`Site settings update failed: ${response.status}`);
+  if (!response.ok) {
+    throw new ApiError(`Site settings update failed: ${response.status}`, {
+      status: response.status,
+    });
+  }
 }
 
 export function uploadSiteLogo(file: File) {
@@ -26,14 +28,11 @@ export function uploadBackground(file: File) {
 async function uploadImage(path: string, file: File) {
   const body = new FormData();
   body.append('image', file);
-  const response = await fetch(path, {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
-    body,
-  });
-  if (!response.ok) throw new Error(`Image upload failed: ${response.status}`);
-  const value: unknown = await response.json();
+  const value: unknown = await requestJSON(
+    path,
+    { method: 'POST', body },
+    'Image upload failed',
+  );
   if (
     !isRecord(value) ||
     typeof value.url !== 'string' ||
@@ -42,8 +41,4 @@ async function uploadImage(path: string, file: File) {
     throw new Error('Image upload response is invalid');
   }
   return value.url;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

@@ -1,3 +1,4 @@
+import { ApiError, request } from '../api/client';
 import type { CategoryIconName } from '../ui/icons/category-icon-registry';
 
 export type CategoryInput = {
@@ -41,13 +42,10 @@ export function deleteCategory(
 }
 
 async function categoryRequest(path: string, init: RequestInit) {
-  const response = await fetch(path, {
-    ...init,
-    credentials: 'same-origin',
-    headers: init.body
-      ? { Accept: 'application/json', 'Content-Type': 'application/json' }
-      : { Accept: 'application/json' },
-  });
-  if (!response.ok)
-    throw new Error(`Category request failed: ${response.status}`);
+  const response = await request(path, init);
+  if (!response.ok) {
+    throw new ApiError(`Category request failed: ${response.status}`, {
+      status: response.status,
+    });
+  }
 }

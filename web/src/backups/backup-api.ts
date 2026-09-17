@@ -1,3 +1,5 @@
+import { ApiError, downloadFile, isRecord, request } from '../api/client';
+
 export type BackupInfo = {
   name: string;
   size: number;
@@ -5,10 +7,10 @@ export type BackupInfo = {
 };
 
 function parseBackupInfo(value: unknown): BackupInfo {
-  if (typeof value !== 'object' || value === null) {
+  if (!isRecord(value)) {
     throw new Error('invalid backup response');
   }
-  const { name, size, createdAt } = value as Record<string, unknown>;
+  const { name, size, createdAt } = value;
   if (
     typeof name !== 'string' ||
     name === '' ||
@@ -23,34 +25,33 @@ function parseBackupInfo(value: unknown): BackupInfo {
 }
 
 export async function listBackups(): Promise<BackupInfo[]> {
-  const response = await fetch('/api/backups', { credentials: 'same-origin' });
-  if (!response.ok) throw new Error('backup list failed');
+  const response = await request('/api/backups');
+  if (!response.ok) {
+    throw new ApiError('backup list failed', { status: response.status });
+  }
   const body: unknown = await response.json();
-  const backups = (body as { backups?: unknown }).backups;
+  const backups = isRecord(body) ? body.backups : undefined;
   if (!Array.isArray(backups)) throw new Error('invalid backup response');
   return backups.map(parseBackupInfo);
 }
 
 export async function createBackup(): Promise<BackupInfo> {
-  const response = await fetch('/api/backups', {
-    method: 'POST',
-    credentials: 'same-origin',
-  });
-  if (!response.ok) throw new Error('backup creation failed');
+  const response = await request('/api/backups', { method: 'POST' });
+  if (!response.ok) {
+    throw new ApiError('backup creation failed', { status: response.status });
+  }
   return parseBackupInfo(await response.json());
 }
 
 export async function deleteBackup(name: string) {
-  const response = await fetch(`/api/backups/${encodeURIComponent(name)}`, {
+  const response = await request(`/api/backups/${encodeURIComponent(name)}`, {
     method: 'DELETE',
-    credentials: 'same-origin',
   });
-  if (!response.ok) throw new Error('backup deletion failed');
+  if (!response.ok) {
+    throw new ApiError('backup deletion failed', { status: response.status });
+  }
 }
 
 export function downloadBackup(name: string) {
-  const anchor = document.createElement('a');
-  anchor.href = `/api/backups/${encodeURIComponent(name)}`;
-  anchor.download = name;
-  anchor.click();
+  downloadFile(`/api/backups/${encodeURIComponent(name)}`, name);
 }

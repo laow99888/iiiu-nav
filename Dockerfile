@@ -42,6 +42,29 @@ FROM go-build AS go-test
 
 RUN CGO_ENABLED=0 go test ./cmd/... ./internal/...
 
+# Restricted host update executor: docker CLI provides the only host access,
+# the Go binary serves the fixed update/status interface on a unix socket.
+FROM --platform=$BUILDPLATFORM golang:1.26.6-alpine AS executor-build
+
+ARG TARGETOS
+ARG TARGETARCH
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd cmd
+COPY internal internal
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
+    -trimpath -ldflags="-s -w" \
+    -o /out/iiiu-nav-executor ./cmd/iiiu-nav-executor
+
+FROM docker:28-cli AS executor
+
+COPY --from=executor-build /out/iiiu-nav-executor /iiiu-nav-executor
+ENV EXECUTOR_SOCKET=/run/iiiu-nav/executor.sock \
+    EXECUTOR_PROJECT_DIR=/project
+ENTRYPOINT ["/iiiu-nav-executor"]
+
 FROM gcr.io/distroless/static-debian12:nonroot
 
 ARG VERSION

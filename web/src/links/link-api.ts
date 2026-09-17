@@ -1,3 +1,11 @@
+import {
+  ApiError,
+  isRecord,
+  readErrorCode,
+  request,
+  requestJSON,
+} from '../api/client';
+
 export type LinkInput = {
   categoryId: string;
   description: string;
@@ -51,15 +59,16 @@ export function reorderLinks(categoryID: string, ids: readonly string[]) {
 }
 
 export async function recognizeLink(url: string): Promise<RecognitionResult> {
-  const response = await fetch('/api/metadata/recognize', {
+  const response = await request('/api/metadata/recognize', {
     method: 'POST',
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify({ url: normalizeLinkURL(url) }),
   });
   if (!response.ok) {
     const code = await readErrorCode(response);
-    throw new Error(code ?? `Recognition failed: ${response.status}`);
+    throw new ApiError(code ?? `Recognition failed: ${response.status}`, {
+      code,
+      status: response.status,
+    });
   }
   const value: unknown = await response.json();
   if (!isRecognitionResult(value))
@@ -69,21 +78,18 @@ export async function recognizeLink(url: string): Promise<RecognitionResult> {
 
 export function isMetadataTargetBlocked(error: unknown) {
   return (
-    error instanceof Error && error.message === 'metadata_target_not_public'
+    error instanceof ApiError && error.code === 'metadata_target_not_public'
   );
 }
 
 export async function uploadLogo(file: File): Promise<string> {
   const form = new FormData();
   form.append('logo', file);
-  const response = await fetch('/api/logos', {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
-    body: form,
-  });
-  if (!response.ok) throw new Error(`Logo upload failed: ${response.status}`);
-  const value: unknown = await response.json();
+  const value: unknown = await requestJSON(
+    '/api/logos',
+    { method: 'POST', body: form },
+    'Logo upload failed',
+  );
   if (
     !isRecord(value) ||
     typeof value.url !== 'string' ||
@@ -98,13 +104,11 @@ export async function refreshAllLinks(): Promise<{
   updated: number;
   failed: number;
 }> {
-  const response = await fetch('/api/links/refresh', {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
-  });
-  if (!response.ok) throw new Error(`Link refresh failed: ${response.status}`);
-  const value: unknown = await response.json();
+  const value: unknown = await requestJSON(
+    '/api/links/refresh',
+    { method: 'POST' },
+    'Link refresh failed',
+  );
   if (
     !isRecord(value) ||
     typeof value.updated !== 'number' ||
@@ -116,14 +120,12 @@ export async function refreshAllLinks(): Promise<{
 }
 
 async function linkRequest(path: string, init: RequestInit) {
-  const response = await fetch(path, {
-    ...init,
-    credentials: 'same-origin',
-    headers: init.body
-      ? { Accept: 'application/json', 'Content-Type': 'application/json' }
-      : { Accept: 'application/json' },
-  });
-  if (!response.ok) throw new Error(`Link request failed: ${response.status}`);
+  const response = await request(path, init);
+  if (!response.ok) {
+    throw new ApiError(`Link request failed: ${response.status}`, {
+      status: response.status,
+    });
+  }
 }
 
 function isRecognitionResult(value: unknown): value is RecognitionResult {
@@ -137,19 +139,4 @@ function isRecognitionResult(value: unknown): value is RecognitionResult {
       value.iconSource === 'upload' ||
       value.iconSource === 'url')
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-async function readErrorCode(response: Response) {
-  try {
-    const value: unknown = await response.json();
-    return isRecord(value) && typeof value.error === 'string'
-      ? value.error
-      : null;
-  } catch {
-    return null;
-  }
 }

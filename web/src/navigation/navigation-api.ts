@@ -1,3 +1,4 @@
+import { ApiError, isRecord, request, requestJSON } from '../api/client';
 import {
   categoryIconRegistry,
   type CategoryIconName,
@@ -59,18 +60,11 @@ export async function fetchNavigation(
   signal?: AbortSignal,
   scope: 'all' | 'public' = 'all',
 ): Promise<NavigationSnapshot> {
-  const response = await fetch(
+  const value: unknown = await requestJSON(
     scope === 'public' ? '/api/navigation?scope=public' : '/api/navigation',
-    {
-      credentials: 'same-origin',
-      headers: { Accept: 'application/json' },
-      signal,
-    },
+    { signal },
+    'Navigation request failed',
   );
-  if (!response.ok) {
-    throw new Error(`Navigation request failed: ${response.status}`);
-  }
-  const value: unknown = await response.json();
   if (!isNavigationResponse(value)) {
     throw new Error('Navigation response is invalid');
   }
@@ -104,17 +98,14 @@ function isSiteSettings(value: unknown): value is SiteSettings {
 }
 
 export async function saveSearchEngines(config: readonly SearchEngineConfig[]) {
-  const response = await fetch('/api/settings/search-engines', {
+  const response = await request('/api/settings/search-engines', {
     method: 'PUT',
-    credentials: 'same-origin',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
     body: JSON.stringify({ engines: config }),
   });
   if (!response.ok) {
-    throw new Error(`Search engine update failed: ${response.status}`);
+    throw new ApiError(`Search engine update failed: ${response.status}`, {
+      status: response.status,
+    });
   }
 }
 
@@ -219,10 +210,6 @@ function isSearchEngineConfig(value: unknown): value is SearchEngineConfig[] {
     seen.add(item.id as SearchEngineID);
     return true;
   });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function hasStrings(value: Record<string, unknown>, keys: readonly string[]) {

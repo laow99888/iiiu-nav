@@ -37,8 +37,12 @@ type Config struct {
 	Settings    SettingsStore
 	Analytics   PageViewAnalytics
 	Updates     UpdateChecker
-	Version     string
-	Logger      *slog.Logger
+	// Executor is the optional host update executor; when nil the system
+	// settings keep the documented manual update path only.
+	Executor       UpdateExecutor
+	SchemaVersions SchemaVersioner
+	Version        string
+	Logger         *slog.Logger
 	// Background is canceled before the data store closes on shutdown so
 	// detached background work (post-import metadata refresh) stops cleanly.
 	Background context.Context
@@ -91,7 +95,7 @@ func New(config Config) http.Handler {
 		registerAnalyticsRoutes(mux, config.Auth, config.Analytics)
 	}
 	if config.Auth != nil && config.Updates != nil {
-		registerUpdateRoutes(mux, config.Auth, config.Updates)
+		registerUpdateRoutes(mux, config.Auth, config.Reverify, config.Updates, config.Executor, config.Backups, config.SchemaVersions)
 	}
 	if config.Auth != nil && config.Categories != nil {
 		registerCategoryRoutes(mux, config.Auth, config.Categories, config.Links, config.Logos, logger)

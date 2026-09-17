@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useState } from 'preact/hooks';
 
 import { messages } from '../i18n/messages';
+import { useAsyncResource } from '../ui/hooks/use-async-resource';
 import { Archive, Download, Plus, Trash2 } from '../ui/icons/interface-icons';
 import { Button, Dialog, Drawer, EmptyState, useToast } from '../ui/primitives';
 import {
@@ -19,36 +20,28 @@ type Props = {
 };
 
 export function BackupDrawer({ onClose, onRestored, open }: Props) {
+  // 列表的加载与重试生命周期由 hook 负责；抽屉关闭时不请求，
+  // 重新打开会回到加载态重新拉取。
+  const resource = useAsyncResource(
+    useCallback(() => listBackups(), []),
+    {
+      enabled: open,
+    },
+  );
+  // 就绪结果同步进本地列表，让创建/删除保留原有的本地乐观更新。
   const [backups, setBackups] = useState<BackupInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [deleting, setDeleting] = useState<BackupInfo | null>(null);
-  const [error, setError] = useState<'load' | 'create' | null>(null);
-  const toast = useToast();
-  // Guards against a stale listing landing after a newer one and clobbering it.
-  const loadRef = useRef(0);
-  const load = async () => {
-    const loadId = ++loadRef.current;
-    setLoading(true);
-    setError(null);
-    try {
-      const list = await listBackups();
-      if (loadId !== loadRef.current) return;
-      setBackups(list);
-    } catch {
-      if (loadId !== loadRef.current) return;
-      setError('load');
-    } finally {
-      if (loadId === loadRef.current) setLoading(false);
-    }
-  };
   useEffect(() => {
-    if (open) void load();
-  }, [open]);
+    if (resource.state.kind === 'ready') setBackups(resource.state.value);
+  }, [resource.state]);
+  const loading = resource.state.kind === 'loading';
+  const [creating, setCreating] = useState(false);
+  const [createFailed, setCreateFailed] = useState(false);
+  const [deleting, setDeleting] = useState<BackupInfo | null>(null);
+  const toast = useToast();
   const create = async () => {
     if (creating) return;
     setCreating(true);
-    setError(null);
+    setCreateFailed(false);
     try {
       const created = await createBackup();
       setBackups((current) => [created, ...current]);
@@ -58,7 +51,7 @@ export function BackupDrawer({ onClose, onRestored, open }: Props) {
         message: messages.backups.createdDescription,
       });
     } catch {
-      setError('create');
+      setCreateFailed(true);
     } finally {
       setCreating(false);
     }
@@ -82,11 +75,11 @@ export function BackupDrawer({ onClose, onRestored, open }: Props) {
           >
             {messages.backups.create}
           </Button>
-          {error ? (
+          {createFailed || resource.state.kind === 'error' ? (
             <p class="backup-manager__error" role="alert">
-              {error === 'load'
-                ? messages.backups.loadFailed
-                : messages.backups.createFailed}
+              {createFailed
+                ? messages.backups.createFailed
+                : messages.backups.loadFailed}
             </p>
           ) : null}
           {loading ? (

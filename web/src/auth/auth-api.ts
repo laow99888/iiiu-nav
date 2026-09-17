@@ -1,3 +1,5 @@
+import { ApiError, isRecord, request } from '../api/client';
+
 type AuthErrorCode =
   | 'authentication_failed'
   | 'current_password_invalid'
@@ -8,13 +10,19 @@ type AuthErrorCode =
   | 'password_change_failed'
   | 'unknown';
 
-export class AuthAPIError extends Error {
+export class AuthAPIError extends ApiError {
+  declare readonly code: AuthErrorCode;
+
   constructor(
-    public readonly status: number,
-    public readonly code: AuthErrorCode,
-    public readonly retryAfter: number | null = null,
+    status: number,
+    code: AuthErrorCode,
+    retryAfter: number | null = null,
   ) {
-    super(`Authentication request failed: ${status} (${code})`);
+    super(`Authentication request failed: ${status} (${code})`, {
+      code,
+      retryAfter,
+      status,
+    });
   }
 }
 
@@ -37,24 +45,14 @@ export function changePassword(currentPassword: string, newPassword: string) {
 }
 
 async function authRequest(path: string, init: RequestInit) {
-  const response = await fetch(path, {
-    ...init,
-    credentials: 'same-origin',
-    headers: init.body
-      ? { Accept: 'application/json', 'Content-Type': 'application/json' }
-      : { Accept: 'application/json' },
-  });
+  const response = await request(path, init);
   if (response.ok) return;
 
   let code: AuthErrorCode = 'unknown';
   try {
     const value: unknown = await response.json();
-    if (
-      typeof value === 'object' &&
-      value !== null &&
-      typeof (value as { error?: unknown }).error === 'string'
-    ) {
-      code = (value as { error: AuthErrorCode }).error;
+    if (isRecord(value) && typeof value.error === 'string') {
+      code = value.error as AuthErrorCode;
     }
   } catch {
     // Preserve the HTTP status when an upstream error page is not JSON.

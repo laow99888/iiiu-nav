@@ -158,7 +158,25 @@ docker compose up -d
 
 ## 7. 升级
 
-后台“系统设置 -> 版本与更新”会检测 GitHub 上最新的稳定版本。检测不上传 IP 或站点数据；开发构建不访问 GitHub。应用容器没有 Docker 权限，因此 NAV-417 只提供版本发现和明确的手动命令，不会自行替换容器。
+后台“系统设置 -> 版本与更新”会检测 GitHub 上最新的稳定版本。检测不上传 IP 或站点数据；开发构建不访问 GitHub。应用容器没有 Docker 权限：默认只提供版本发现和明确的手动命令；安装了受限更新执行器（见 7.1）后，同一界面可发起一键更新。
+
+### 7.1 可选：受限更新执行器（一键更新）
+
+执行器是一个独立的 `iiiu-nav-executor` 容器，持有 Docker 套接字，只暴露固定的“更新/状态”接口：目标版本必须是被强制重新校验的官方最新稳定版，镜像 digest 以 GitHub 发布清单独立核实，命令全部由固定配置拼装，不接受任意镜像、容器、命令或路径。应用容器从不挂载 Docker 套接字，只通过共享 unix socket 与执行器对话。
+
+前置条件：项目目录为仓库检出的 Compose 部署（含 `compose.executor.yaml`），项目名为 `iiiu-nav`（compose.yaml 顶层 `name:`）。
+
+安装：
+
+1. 拉取执行器镜像：`docker compose -f compose.yaml -f compose.executor.yaml pull executor`。
+2. 启动：`docker compose -f compose.yaml -f compose.executor.yaml up -d --wait`。
+3. 确认执行器运行：`docker compose logs executor`；应用容器日志应显示 `IIU_NAV_EXECUTOR_SOCKET` 生效。后台“版本与更新”面板出现“一键更新”入口即表示接线成功。
+
+一键更新流程：管理员输入当前密码确认 → 应用先在 `/data/backups` 创建完整预更新备份 → 执行器独立向 GitHub 核实发布与镜像 digest → 按 digest 拉取并重建应用容器 → 等待健康检查通过。期间浏览器保持进度视图，应用短暂离线属预期；健康验证失败时执行器自动回滚到旧镜像，若旧镜像因 schema 已升级无法启动，会先恢复预更新备份再启动，失败原因在后台与执行器日志中保留。
+
+卸载（回到纯手动更新）：`docker compose -f compose.yaml -f compose.executor.yaml down executor && docker compose up -d app`。
+
+### 7.2 手动升级
 
 `stable` 只有在显式拉取后才会进入本机。升级前记录当前版本和镜像 digest，并完成外部备份：
 
