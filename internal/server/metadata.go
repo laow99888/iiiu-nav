@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
 
+	"iiiu-nav/internal/imagecleanup"
 	"iiiu-nav/internal/imagestore"
 	"iiiu-nav/internal/linkmeta"
 	"iiiu-nav/internal/navigation"
@@ -18,6 +20,7 @@ type metadataHandler struct {
 	recognizer *linkmeta.Recognizer
 	logos      *imagestore.Store
 	background context.Context
+	logger     *slog.Logger
 }
 
 type recognitionRequest struct {
@@ -36,8 +39,8 @@ type bulkRecognitionResponse struct {
 	Failed  int `json:"failed"`
 }
 
-func registerMetadataRoutes(mux *http.ServeMux, authenticator Authenticator, links LinkManager, recognizer *linkmeta.Recognizer, logos *imagestore.Store, background context.Context) *metadataHandler {
-	handler := &metadataHandler{links: links, recognizer: recognizer, logos: logos, background: background}
+func registerMetadataRoutes(mux *http.ServeMux, authenticator Authenticator, links LinkManager, recognizer *linkmeta.Recognizer, logos *imagestore.Store, background context.Context, logger *slog.Logger) *metadataHandler {
+	handler := &metadataHandler{links: links, recognizer: recognizer, logos: logos, background: background, logger: logger}
 	mux.Handle("POST /api/metadata/recognize", RequireAdmin(authenticator, http.HandlerFunc(handler.recognize)))
 	mux.Handle("POST /api/links/{id}/refresh", RequireAdmin(authenticator, http.HandlerFunc(handler.refresh)))
 	mux.Handle("POST /api/links/refresh", RequireAdmin(authenticator, http.HandlerFunc(handler.refreshAll)))
@@ -144,7 +147,7 @@ func (handler *metadataHandler) refreshLink(ctx context.Context, link navigation
 	iconSource, iconValue := response.IconSource, response.IconValue
 	if link.IconSource == navigation.IconSourceUpload {
 		if response.IconValue != "" && response.IconValue != link.IconValue {
-			_ = handler.logos.Remove(response.IconValue)
+			handler.discardLogo(response.IconValue)
 		}
 		iconSource, iconValue = link.IconSource, link.IconValue
 	}
@@ -154,14 +157,22 @@ func (handler *metadataHandler) refreshLink(ctx context.Context, link navigation
 	})
 	if err != nil {
 		if iconValue != link.IconValue {
-			_ = handler.logos.Remove(iconValue)
+			handler.discardLogo(iconValue)
 		}
 		return navigation.Link{}, err
 	}
 	if link.IconValue != updated.IconValue {
-		handler.removeIfUnreferenced(ctx, link.IconValue)
+		imagecleanup.Retire(ctx, handler.logger, handler.logos, handler.links, link.IconValue)
 	}
 	return updated, nil
+}
+
+// discardLogo removes a logo file this handler just saved but that never
+// reached the database, so it cannot be referenced by any record.
+func (handler *metadataHandler) discardLogo(publicPath string) {
+	if err := handler.logos.Remove(publicPath); err != nil {
+		handler.logger.Warn("unused logo removal failed", "path", publicPath, "error", err)
+	}
 }
 
 func (handler *metadataHandler) responseFromRecognition(rawURL string, result linkmeta.Result, currentIcon string, currentSource navigation.IconSource) recognitionResponse {
@@ -200,14 +211,4 @@ func (handler *metadataHandler) upload(writer http.ResponseWriter, request *http
 		return
 	}
 	writeJSON(writer, http.StatusCreated, map[string]string{"url": publicPath})
-}
-
-func (handler *metadataHandler) removeIfUnreferenced(ctx context.Context, publicPath string) {
-	if !validLogoPath(publicPath) {
-		return
-	}
-	count, err := handler.links.LogoReferenceCount(ctx, publicPath)
-	if err == nil && count == 0 {
-		_ = handler.logos.Remove(publicPath)
-	}
 }

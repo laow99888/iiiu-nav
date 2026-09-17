@@ -44,6 +44,11 @@ func serve(logger *slog.Logger) error {
 			logger.Error("database close failed", "error", err)
 		}
 	}()
+	// Deferred functions run last-in-first-out, so canceling background work
+	// here fires before the data.Close defer above: detached work never
+	// outlives the data store.
+	background, cancelBackground := context.WithCancel(context.Background())
+	defer cancelBackground()
 
 	authenticator, err := auth.New(auth.Config{Store: data.store})
 	if err != nil {
@@ -116,6 +121,7 @@ func serve(logger *slog.Logger) error {
 			Updates:     updates,
 			Version:     version,
 			Logger:      logger,
+			Background:  background,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
@@ -125,12 +131,20 @@ func serve(logger *slog.Logger) error {
 
 	shutdownContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	go shutdownServer(shutdownContext, httpServer, logger)
+	shutdownComplete := make(chan struct{})
+	go func() {
+		defer close(shutdownComplete)
+		shutdownServer(shutdownContext, httpServer, logger)
+		cancelBackground()
+	}()
 
 	logger.Info("iiiu-nav listening", "address", address, "version", version)
 	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("serve HTTP: %w", err)
 	}
+	// Wait for the connection drain before returning so the deferred
+	// data.Close runs against a quiescent store with background work canceled.
+	<-shutdownComplete
 	return nil
 }
 

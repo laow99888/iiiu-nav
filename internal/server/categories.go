@@ -11,6 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"iiiu-nav/internal/imagecleanup"
 	"iiiu-nav/internal/imagestore"
 	"iiiu-nav/internal/navigation"
 )
@@ -133,12 +134,7 @@ func (handler *categoryHandler) delete(writer http.ResponseWriter, request *http
 		writeError(writer, http.StatusInternalServerError, "category_delete_failed")
 	default:
 		for _, link := range deletedLinks {
-			if !validLogoPath(link.IconValue) {
-				continue
-			}
-			if count, countErr := handler.links.LogoReferenceCount(request.Context(), link.IconValue); countErr == nil && count == 0 {
-				_ = handler.logos.Remove(link.IconValue)
-			}
+			imagecleanup.Retire(request.Context(), handler.logger, handler.logos, handler.links, link.IconValue)
 		}
 		writer.WriteHeader(http.StatusNoContent)
 	}

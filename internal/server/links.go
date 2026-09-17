@@ -3,12 +3,14 @@ package server
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
+	"iiiu-nav/internal/imagecleanup"
 	"iiiu-nav/internal/imagestore"
 	"iiiu-nav/internal/navigation"
 )
@@ -35,12 +37,13 @@ type linkMutationRequest struct {
 }
 
 type linkHandler struct {
-	store LinkManager
-	logos *imagestore.Store
+	store  LinkManager
+	logos  *imagestore.Store
+	logger *slog.Logger
 }
 
-func registerLinkRoutes(mux *http.ServeMux, authenticator Authenticator, store LinkManager, logos *imagestore.Store) {
-	handler := &linkHandler{store: store, logos: logos}
+func registerLinkRoutes(mux *http.ServeMux, authenticator Authenticator, store LinkManager, logos *imagestore.Store, logger *slog.Logger) {
+	handler := &linkHandler{store: store, logos: logos, logger: logger}
 	mux.Handle("POST /api/links", RequireAdmin(authenticator, http.HandlerFunc(handler.create)))
 	mux.Handle("PUT /api/links/{id}", RequireAdmin(authenticator, http.HandlerFunc(handler.update)))
 	mux.Handle("DELETE /api/links/{id}", RequireAdmin(authenticator, http.HandlerFunc(handler.delete)))
@@ -87,7 +90,7 @@ func (handler *linkHandler) update(writer http.ResponseWriter, request *http.Req
 	case err != nil:
 		writeError(writer, http.StatusInternalServerError, "link_update_failed")
 	default:
-		handler.removeUnreferencedLogo(request.Context(), previous.IconValue, link.IconValue)
+		handler.retireLogo(request.Context(), previous.IconValue, link.IconValue)
 		writeJSON(writer, http.StatusOK, linkResponseFromRecord(link))
 	}
 }
@@ -108,7 +111,7 @@ func (handler *linkHandler) delete(writer http.ResponseWriter, request *http.Req
 	} else if err != nil {
 		writeError(writer, http.StatusInternalServerError, "link_delete_failed")
 	} else {
-		handler.removeUnreferencedLogo(request.Context(), previous.IconValue, "")
+		handler.retireLogo(request.Context(), previous.IconValue, "")
 		writer.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -203,12 +206,11 @@ func validLogoPath(value string) bool {
 	return valid
 }
 
-func (handler *linkHandler) removeUnreferencedLogo(ctx context.Context, previous, current string) {
-	if handler.logos == nil || previous == "" || previous == current || !validLogoPath(previous) {
+// retireLogo retires a link's previous logo after a mutation, unless the
+// mutation kept it. The reference-aware policy lives in imagecleanup.
+func (handler *linkHandler) retireLogo(ctx context.Context, previous, current string) {
+	if previous == "" || previous == current {
 		return
 	}
-	count, err := handler.store.LogoReferenceCount(ctx, previous)
-	if err == nil && count == 0 {
-		_ = handler.logos.Remove(previous)
-	}
+	imagecleanup.Retire(ctx, handler.logger, handler.logos, handler.store, previous)
 }

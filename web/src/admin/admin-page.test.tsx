@@ -28,6 +28,34 @@ describe('管理后台', () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
+  // 放在最前：此时 jsdom 历史尚未被其他测试的抽屉卸载遍历（异步
+  // history.back()）污染，历史状态断言才是确定性的。
+  it('分区切换写入模块 URL 且保留历史状态对象', async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({ marker: 'kept' }, '', '/admin');
+    const replaceState = vi.spyOn(window.history, 'replaceState');
+    render(
+      <AdminPage
+        categories={navigationFixtures}
+        onRetry={vi.fn()}
+        onSessionChanged={vi.fn()}
+      />,
+    );
+
+    const navigation = screen.getByRole('navigation', { name: '后台导航' });
+    await user.click(
+      within(navigation).getByRole('button', { name: '链接管理' }),
+    );
+
+    expect(replaceState).toHaveBeenCalled();
+    const [state, , url] = replaceState.mock.calls.at(-1)!;
+    expect(url).toBe('/admin/links');
+    expect(state).toEqual({ marker: 'kept' });
+    replaceState.mockRestore();
+    // jsdom 的 URL 跨测试保留，还原路径让后续测试从公共首页开始。
+    window.history.replaceState(null, '', '/');
+  });
+
   it('提供带访客趋势的仪表盘并支持周期切换', async () => {
     const user = userEvent.setup();
     render(
