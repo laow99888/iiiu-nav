@@ -97,11 +97,11 @@ func New(config Config) http.Handler {
 		registerCategoryRoutes(mux, config.Auth, config.Categories, config.Links, config.Logos, logger)
 	}
 	if config.Auth != nil && config.Links != nil {
-		registerLinkRoutes(mux, config.Auth, config.Links, config.Logos)
+		registerLinkRoutes(mux, config.Auth, config.Links, config.Logos, logger)
 	}
 	var metadata *metadataHandler
 	if config.Auth != nil && config.Links != nil && config.Logos != nil && config.Metadata != nil {
-		metadata = registerMetadataRoutes(mux, config.Auth, config.Links, config.Metadata, config.Logos, background)
+		metadata = registerMetadataRoutes(mux, config.Auth, config.Links, config.Metadata, config.Logos, background, logger)
 	}
 	if config.Auth != nil && config.Imports != nil {
 		registerBookmarkRoutes(mux, config.Auth, config.Imports, metadata)
