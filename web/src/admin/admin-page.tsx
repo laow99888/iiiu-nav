@@ -64,7 +64,12 @@ function AdminPageContent({
   const setSection = (next: AdminSection) => {
     setSectionState((current) => {
       if (current !== next) {
-        window.history.replaceState(null, '', adminSectionPath(next));
+        // 保留当前历史状态对象，避免抹掉弹层的 {uiModal} 返回哨兵。
+        window.history.replaceState(
+          window.history.state,
+          '',
+          adminSectionPath(next),
+        );
       }
       return next;
     });
