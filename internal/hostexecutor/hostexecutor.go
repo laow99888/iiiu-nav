@@ -196,6 +196,13 @@ func (service *Service) recover(ctx context.Context, request StartRequest, cause
 			return
 		}
 		restorePath := filepath.ToSlash(filepath.Join("/data/backups", request.BackupName))
+		// The restore swaps database files under /data; no live process may
+		// hold them open while a one-off restore container works on the
+		// volume.
+		if _, err := service.runner.Run(ctx, "docker", service.composeArgs("stop", service.config.Service)...); err != nil {
+			service.finish(request, StateFailed, message+"; could not stop the service before backup restore: "+err.Error())
+			return
+		}
 		if _, err := service.runner.Run(ctx, "docker", service.composeArgs("run", "--rm", service.config.Service, "restore", restorePath)...); err != nil {
 			service.finish(request, StateFailed, message+"; backup restore failed: "+err.Error())
 			return
